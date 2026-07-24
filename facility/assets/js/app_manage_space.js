@@ -93,7 +93,7 @@ Vue.createApp({
 		this.fid = sessionStorage.toyosu_manage_facility_id;
 		 console.log(this.fid);
 			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
+			ensureAuth()
 			  .then(() => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();

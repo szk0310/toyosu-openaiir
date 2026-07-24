@@ -143,7 +143,7 @@ Vue.createApp({
 
 	mounted(){	
 			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
+			ensureAdmin()
 			  .then(() => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();

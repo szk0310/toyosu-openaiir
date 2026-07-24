@@ -319,7 +319,7 @@ generateCalendar() {
     fetchSpaceData() {
       const sid = this.sid
       const db = firebase.firestore()
-      firebase.auth().signInAnonymously()
+      ensureAuth()
         .then(() => {
           db.collection("spaceData").where("s_id", "==", sid).get()
             .then(querySnapshot => {

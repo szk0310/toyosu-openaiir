@@ -67,6 +67,52 @@
     });
   };
 
+  // ------------------------------------------------------------
+  //  既存コード互換ヘルパー
+  //  かつての `firebase.auth().signInAnonymously()` を1トークンで置換するための関数。
+  //  signInAnonymously と同じく Promise を返すので、後続の .then(() => {...}).catch(...)
+  //  をそのまま使える。未ログイン/権限なしの場合は loginUrl へ遷移し Promise は解決しない。
+  // ------------------------------------------------------------
+
+  // facility ページ用（任意のログイン済み施設ユーザー）
+  global.ensureAuth = function (loginUrl) {
+    var url = loginUrl || "login.html";
+    return new Promise(function (resolve) {
+      var unsub = auth.onAuthStateChanged(function (user) {
+        unsub();
+        if (isLoggedIn(user)) {
+          resolve(user);
+        } else {
+          location.href = url; // ページ遷移。resolve/reject しない。
+        }
+      });
+    });
+  };
+
+  // master / idea / case ページ用（管理者のみ）
+  global.ensureAdmin = function (loginUrl) {
+    var url = loginUrl || "login.html";
+    return new Promise(function (resolve) {
+      var unsub = auth.onAuthStateChanged(function (user) {
+        unsub();
+        if (!isLoggedIn(user)) {
+          location.href = url;
+          return;
+        }
+        checkAdmin(user).then(function (ok) {
+          if (ok) {
+            resolve(user);
+          } else {
+            alert("管理者権限がありません。再度ログインしてください。");
+            firebase.auth().signOut().finally(function () {
+              location.href = url;
+            });
+          }
+        });
+      });
+    });
+  };
+
   // ログアウト共通処理
   global.logoutManage = function (loginUrl) {
     return firebase.auth().signOut().finally(function () {

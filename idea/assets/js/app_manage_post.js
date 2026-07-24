@@ -192,7 +192,7 @@ computed: {
 
 
 			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
+			ensureAdmin("../master/login.html")
 			  .then(() => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();
@@ -223,7 +223,7 @@ computed: {
 // -------------------------
 // spaceData（常に取得）
 // -------------------------
-  firebase.auth().signInAnonymously()
+  ensureAdmin("../master/login.html")
   .then(() => {
     const db = firebase.firestore();
     console.log("spaceData Get Start!!");
