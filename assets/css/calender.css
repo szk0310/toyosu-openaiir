@@ -1,0 +1,187 @@
+@charset "UTF-8";
+
+
+/*----------------------------
+    カレンダー
+-------------------------------*/
+.closed_txt{
+	font-size:0.6em
+}
+.calendar{
+	width:75%;
+	margin: 0 auto;
+}
+/*--月移動--*/
+.calendar-header{
+	margin: 20px auto;
+}
+.calendar-header .move_month{
+	font-size:18px;
+	text-align: center
+}
+.calendar-header .move_month span{
+	padding:0 2em
+}
+.calendar-header .move_current{
+	text-align: right
+}
+.calendar-header .move_current button{
+	min-width:6em;
+	padding: 0.2em 0.5em;
+	background: var(--col_l_blue);
+	color: var(--col_white);
+	box-sizing: border-box
+}
+.calendar-header .move_current button:disabled{
+	opacity: 0.4
+}
+.disabledArrow {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+
+/*--曜日--*/
+.calendar-week{
+	display: flex;
+	width:100%
+}
+.calendar-week .week-day{
+	width:calc(100% /7);
+	text-align: center;
+}
+.calendar-week .week-day:nth-child(7){
+  color: #d32603;
+}
+
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.calendar-cell {
+  border: 1px solid #ccc;
+  padding: 5px;
+  /*min-height: 60px;*/
+  cursor: pointer;
+		line-height: 1
+}
+.calendar-grid .status{
+	font-size:18px;
+	font-weight: bold;
+	text-align: center;
+
+}
+/*--◯△×--*/
+.calendar-cell.status-available {background: var(--col_white); }
+.calendar-cell.status-limited   {background: #fcfcec}
+.calendar-cell.status-closed    {background: #fcf0ec }
+
+.todayCell {
+  border:1px solid var(--col_l_blue);
+}
+.pastCell {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 日曜日 */
+.sundayCell:not(.otherMonth) .date-number {
+  color: #d32603;
+}
+
+/* 祝日 */
+.holidayCell .date-number {
+  color: #d32603;
+}
+.otherMonth {
+	opacity: 0.4;
+  background: #f3f3f3!important;
+  color: #ccc;
+  pointer-events: none;
+}
+
+/*--下部ボタン--*/
+.calendar-save{
+	/*display: flex;
+	justify-content: space-between*/
+}
+.calendar-save .reset_month{
+	text-align: right;
+	margin-top: 5px
+}
+.calendar-save .reset_month button{
+	min-width:6em;
+	box-sizing: border-box;
+	padding: 0.2em 0.5em;
+	background: var(--col_l_blue);
+	color: var(--col_white);
+}
+.calendar-save .reset_month button:disabled{
+	opacity: 0.4
+}
+.calendar-save .button-save{
+	width:200px;
+	background: var(--col_green);
+	border:1px solid var(--col_green);
+	color:var(--col_white);
+	font-size:16px;
+	font-weight: bold;
+	line-height: 2.5;
+	letter-spacing: 1.2px;
+	border-radius: 3em;
+	margin:0 auto;
+	display: block;
+}
+.calendar-save button:disabled{
+	opacity: 0.4;
+	pointer-events: none;
+}
+
+@media only screen and (max-width: 768px){
+	.calendar{
+		width:100%;
+		font-size:3.0vw
+	}
+	
+/*--月移動--*/
+	.calendar-header{
+		margin: 2vw auto;
+	}
+	.calendar-header .move_month{
+		font-size:3.8vw;
+		text-align: center
+	}	
+	.calendar-header .move_current button{
+		font-size:3.2vw;
+		margin-top: 1vw
+	}
+	.calendar-grid {
+	  gap: 1vw;
+	}
+
+	.calendar-cell {
+	  border: 1px solid #ccc;
+	  padding: 1vw;
+		line-height: 1.2;
+		text-align: center
+	}
+	.calendar-grid .status{
+		font-size:4vw;
+	}
+	
+	/*--下部ボタン--*/
+	.calendar-save .reset_month{
+		margin: 1vw 0 4vw
+	}
+	.calendar-save .reset_month button{
+		font-size:3.2vw;
+	}
+	.calendar-save .button-save{
+		width:80%;
+		font-size:3.2vw;
+	}
+
+}

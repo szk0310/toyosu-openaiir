@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>地図選択</title>
+  <style>
+    body { margin: 0; }
+    #map { height: calc(100vh - 50px); }
+    #footer {
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      background: #f5f5f5;
+      box-sizing: border-box;
+      font-size: 12px;
+    }
+    button {
+      padding: 4px 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="footer">
+  <div>
+    lat: <span id="lat_view">-</span>,
+    lng: <span id="lng_view">-</span>
+  </div>
+  <button onclick="applyLocation()">この位置を入力する</button>
+</div>
+
+<script>
+  var map;
+  var marker = null;
+  var selectedLat = null;
+  var selectedLng = null;
+
+  function initMap() {
+    map = new google.maps.Map(document.getElementById('map'), {
+      zoom: 15,
+      center: { lat: 35.65276949758043, lng: 139.79332016476206 }
+    });
+
+    map.addListener('click', function(e) {
+      selectLocation(e.latLng);
+    });
+  }
+
+  function selectLocation(latLng) {
+    selectedLat = latLng.lat();
+    selectedLng = latLng.lng();
+
+    document.getElementById('lat_view').textContent =
+      selectedLat.toFixed(6);
+    document.getElementById('lng_view').textContent =
+      selectedLng.toFixed(6);
+
+    if (marker) {
+      marker.setPosition(latLng);
+    } else {
+      marker = new google.maps.Marker({
+        position: latLng,
+        map: map
+      });
+    }
+  }
+
+function applyLocation() {
+  if (selectedLat === null) {
+    alert('地図をクリックしてください');
+    return;
+  }
+
+  if (window.opener && !window.opener.closed) {
+    const latInput = window.opener.document.getElementById('lat_input');
+    const lngInput = window.opener.document.getElementById('lng_input');
+
+    latInput.value = selectedLat.toFixed(6);
+    lngInput.value = selectedLng.toFixed(6);
+
+    // ★ これが超重要
+    latInput.dispatchEvent(new Event('input', { bubbles: true }));
+    lngInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  window.close();
+}
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD1ykE0QY9j8iYqJbnnTapy8fa9H_m7iRg&callback=initMap"
+  async defer>
+</script>
+
+</body>
+</html>

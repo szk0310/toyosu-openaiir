@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="robots" content="index, follow">
+<title>Open Air 管理画面 | 豊洲スマートシティ</title> 
+<meta name="description" content="" />
+<link rel="shortcut icon" href="">
+<meta name="format-detection" content="telephone=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge"><!--IE対策-->
+
+<!-- OG --> 
+<meta property="og:title" content="">
+<meta property="og:type" content="website">
+<meta property="og:url" content="">
+<meta property="og:image" content="">
+<meta property="og:site_name" content="">
+<meta property="og:description" content="">
+	
+<!-- ▼CSS -->
+<link rel="stylesheet" type="text/css" href="../assets/css/style.css">
+<link rel="stylesheet" type="text/css" href="../assets/css/manage.css">
+
+
+<!-- ▼JS -->
+<script src="../assets/js/jquery-1.8.2.min.js" type="text/javascript"></script>
+<script src="../assets/js/common.js"></script>
+	
+<!-- firestore用 -->
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+	<script src="../../assets/js/common/firestore_openAir.js"></script>
+
+	
+<!-- ▼font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap" rel="stylesheet">	
+</head>
+
+<body class="container"  id="">
+	<!---------------------headerここから -------------------->
+	<header>
+		<div class="header-wrap">
+			<div class="header-left">
+				<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>	
+			</div>
+			<div class="toTop"><a href="index.html">ManageTop</a></div>
+		</div>
+	</header>
+
+	<!---------------------manage-topここから -------------------->
+	<div class="manage-top">
+		<div class="manage-nav">
+			<div class="cont-inn2">
+			<nav>
+				<a href="index.html"><h1 class="page_ttl">Open Air 管理画面</h1></a>
+			</nav>
+			</div>
+		</div>
+		<div class="name-head">
+			<div class="cont-inn2">
+				<div class="name">
+					<a href="space_index.html"><h2 class="page_ttl" id="facility_name"></h2></a>
+				</div>
+			</div>
+		</div>
+
+	</div>
+	
+	<div class="manage-wrap">
+		<div class="cont-inn2" id="app_manage_space_post">
+			<!---------------------一覧ここから-------------------->
+		</div>
+	</div>
+
+	<!---------------------footerここから -------------------->
+	<footer>
+		<div class="pagetop pagetop-s">
+			<a href="#"><p class="pagetop-icon"><img src="../assets/img/icon-pagetop.png" alt="pagetop"><br>page top</p></a>
+		</div>
+		<div class="footer-wrap">
+			<div class="footer-inn">
+				<div class="footer-left">
+					<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>	
+				</div>
+				<p>©️豊洲スマートシティ推進協議会</p>
+			</div>
+		</div>
+	</footer>
+	
+<script type="text/javascript" src="../../assets/js/common/vue.js"></script>
+<script src="assets/js/login_check.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script type="text/javascript" src="assets/js/app_manage_space_post.js"></script>	
+</body>
+</html>

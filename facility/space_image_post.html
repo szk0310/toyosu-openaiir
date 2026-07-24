@@ -1,0 +1,125 @@
+
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width">
+<meta name="robots" content="index, follow">
+<title>Open Air 管理画面 | 豊洲スマートシティ</title> 
+<meta name="description" content="" />
+<link rel="shortcut icon" href="">
+<meta name="format-detection" content="telephone=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge"><!--IE対策-->
+
+<!-- OG --> 
+<meta property="og:title" content="">
+<meta property="og:type" content="website">
+<meta property="og:url" content="">
+<meta property="og:image" content="">
+<meta property="og:site_name" content="">
+<meta property="og:description" content="">
+	
+<!-- ▼CSS -->
+<link rel="stylesheet" type="text/css" href="../assets/css/style.css">
+<link rel="stylesheet" type="text/css" href="../assets/css/manage.css">
+	
+<!-- ▼JS -->
+<script src="../assets/js/jquery-1.8.2.min.js" type="text/javascript"></script>
+<script src="../assets/js/common.js"></script>
+
+	
+<!-- ▼font -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap" rel="stylesheet">	
+	
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script>
+	
+$(function() {
+  $('.js-upload-file').on('change', function () { //ファイルが選択されたら
+    var file = $(this).prop('files')[0]; //ファイルの情報を代入(file.name=ファイル名/file.size=ファイルサイズ/file.type=ファイルタイプ)
+    $('.js-upload-filename').text(file.name); //ファイル名を出力
+  });
+});
+
+</script>	
+	
+</head>
+
+<body class="container" id="child">
+	<!---------------------headerここから -------------------->
+	<header>
+		<div class="header-wrap">
+			<div class="header-left">
+				<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>
+			</div>
+			<div class="toTop"><a href="index.html">ManageTop</a></div>			
+		</div>
+	</header>
+
+	<!---------------------manage-topここから -------------------->
+	<div class="manage-top">
+		<div class="manage-nav">
+			<div class="cont-inn2">
+			<nav>
+				<a href="index.html"><h1 class="page_ttl">Open Air 管理画面</h1></a>
+			</nav>
+			</div>
+		</div>
+			<div class="name-head">
+				<div class="cont-inn2">
+						<div class="name">
+							<a href="space_index.html"><h2 class="page_ttl" id="facility_name"></h2></a>
+						</div>
+				</div>
+			</div>
+
+	</div>
+	
+	<div class="manage-wrap">
+		<div class="cont-inn2">
+			<!---------------------写真投稿はここから -------------------->
+			<form action="upload_image_space.php" method="post" enctype="multipart/form-data">
+				<div class="h-bg">
+					<h3 class="h-ttl">スペースページ画像</h3>
+				</div>
+				<div class="manage-bg thub-image">
+					<div class="upload-area">
+						<p class="bold">ここに画像をドラッグ<br class="pc">または</p>
+							<input type="file" name="image" id="input-files" class="js-upload-file" accept="image/png, image/jpeg, image/gif">
+						<div class="js-upload-filename">ファイルが未選択です</div>
+					</div>
+						<p class="img-notice">サイズ：W:680×H:440 ※JPEG・PNG・GIFの画像を登録してください。</p>
+
+				<input type="text" value="" name="id" id="id">
+				<input type="submit" id="submit-btn" class="button-save" value="保存">
+				</div>
+			</form>	  
+		</div>
+	</div>
+	
+	<!---------------------footerここから -------------------->
+	<footer>
+		<div class="pagetop">
+			<a href="#"><p class="pagetop-icon"><img src="../assets/img/icon-pagetop.png" alt="pagetop"><br>page top</p></a>
+		</div>
+		<div class="footer-wrap">
+			<div class="footer-inn">
+				<div class="footer-left">
+					<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>
+				</div>
+				<p>©️豊洲スマートシティ推進協議会</p>
+			</div>
+		</div>
+	</footer>
+	
+<script type="text/javascript" src="../../assets/js/common/vue.js"></script>
+<script src="assets/js/login_check_space.js"></script>
+<script>
+	  	document.getElementById('id').value = sid;
+</script>	  
+
+
+</body>
+</html>
