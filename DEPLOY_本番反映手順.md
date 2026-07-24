@@ -1,0 +1,93 @@
+# 本番反映手順（Firebase Auth 移行）
+
+対象プロジェクト: **toyosuopenair**（本番）
+ブランチ: `firebase-auth-migration`
+
+この改修で **パスワードは Firestore に一切保存されなくなり、Firebase Authentication（scryptで安全にハッシュ管理）に移行**します。
+
+---
+
+## 0. 前提と影響範囲
+
+- 変更は `manage` アプリ内に閉じています（共有 config を使うのは manage の17ファイルのみ）。
+- ログインID（`login_id`）は従来どおりランダム10桁を維持。内部的に `login_id@toyosu-openair.local` として Auth に登録します（外部にメールは送りません）。
+- 既存の本番施設データには Auth アカウントが無いため、**移行後に master 画面から登録し直す**必要があります（実利用者がいない今のうちに）。
+
+---
+
+## 1. Firebase コンソールでの作業（あなたの作業・コードでは不可）
+
+### 1-1. メール/パスワード認証を有効化
+`Authentication` → `Sign-in method` → **「メール/パスワード」を有効化**
+（プロジェクトが **toyosuopenair** になっていることを確認）
+
+### 1-2. 管理者アカウントを作成
+`Authentication` → `Users` → **ユーザーを追加**
+- メール: あなたのメール（例 `suzuki@shiro-k.jp`）
+- パスワード: 任意（master ログインで使用）
+
+作成後、その **ユーザーUID をコピー**。
+
+### 1-3. 管理者を admins コレクションに登録
+`Firestore` → コレクション `admins` を作成し、**ドキュメントID = 上でコピーしたUID** の空ドキュメント（または `{ role: "admin" }`）を作成。
+→ これで master / idea / case 画面に入れるようになります。もう一人のスタッフも同様に追加。
+
+### 1-4. セキュリティルールをデプロイ
+`Firestore` → `ルール` に、リポジトリの [`firestore.rules`](firestore.rules) の内容を貼り付けて **公開**。
+
+---
+
+## 2. ファイルのデプロイ（サーバーへアップロード）
+
+以下をサーバーへ反映します。
+
+| ローカル | サーバー配置先 |
+|---|---|
+| `manage/` 一式 | 既存の `manage/` を上書き |
+| `_shared-config/assets/js/common/firestore_openAir.js` | サーバーの `assets/js/common/firestore_openAir.js`（manage の親階層）を上書き |
+
+- `manage/assets/js/auth_guard.js` は manage 内なので、manage を上げれば一緒に反映されます。
+- `firestore_openAir.js` は **本番(toyosuopenair)に切替済み**（テスト設定はコメントで残置。切り戻す時はコメントを入れ替え）。
+
+---
+
+## 3. 既存施設アカウントの作り直し
+
+1. master 画面（`master/login.html`）に管理者でログイン。
+2. 既存の施設（あなた＋スタッフ分）を **新規登録**し直す（新しいID/PASSがメール送信されます）。
+   - 登録時に Firebase Auth ユーザーが自動作成され、`facilityData` に `uid` が保存されます。
+3. 旧レコード（`login_pass` が残っている古いドキュメント）は master 一覧から **削除**。
+   - ※ 施設削除では Firestore のデータのみ削除されます。Auth ユーザーの完全削除が必要な場合は
+     コンソールの `Authentication → Users` から手動削除してください（データが無ければログインしても使えません）。
+
+---
+
+## 4. 動作確認チェックリスト
+
+- [ ] master/login.html に管理者でログインできる／権限なしは弾かれる
+- [ ] master で施設を新規登録 → ID・PASS がメール受信できる
+- [ ] facility/login.html にそのID/PASSでログインできる
+- [ ] 誤ったID/PASSでログインが弾かれる
+- [ ] スペース・画像・カレンダー等の登録/更新ができる（施設ログイン中）
+- [ ] idpass_post.html でパスワード変更できる（現パス誤りは弾かれる／変更後は新パスでログイン可）
+- [ ] ログインせずに管理ページを直接開くとログイン画面へ飛ぶ
+- [ ] （検証）ブラウザのコンソールから匿名で `facilityData` に **書き込みできない**ことを確認
+
+---
+
+## 5. 切り戻し（万一のとき）
+
+- Git: `git checkout main` で改修前（`baseline`）に戻せます。
+- config: `firestore_openAir.js` のテスト/本番のコメントを入れ替え。
+- ルール: 旧ルールに戻す（改修前は匿名 read/write 許可だったはず）。
+
+---
+
+## 補足: セキュリティ上の効果
+
+| 項目 | 改修前 | 改修後 |
+|---|---|---|
+| パスワード保存 | Firestore に**平文** | Firestore に保存せず、**Firebase Auth が scrypt でハッシュ管理** |
+| 認証照合 | ブラウザ側で平文比較 | Firebase サーバー側で認証 |
+| 匿名での書き込み | 可能（改ざんリスク） | **不可**（非匿名ログイン必須） |
+| 管理画面(master/idea/case) | 無認証 | **管理者ログイン必須** |
