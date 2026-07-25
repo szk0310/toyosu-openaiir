@@ -8,6 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 	<script src="../../assets/js/common/firestore_openAir.js"></script>
+	<script src="../assets/js/auth_guard.js"></script>
 
 	
 
@@ -106,6 +107,7 @@ imagecopyresampled($image2, $image1, $startPointX , $startPointY, 0, 0,  $width2
 			 var filename = {$js_filename};
 			  var id ={$js_id};
 			  alert("ファイルをアップロードしました。")
+			  ensureAuth().then(function () {
 			  const db = firebase.firestore();
 				  const ts = firebase.firestore.FieldValue.serverTimestamp();
 				  db.collection("facilityData").doc(id).set({
@@ -119,6 +121,7 @@ imagecopyresampled($image2, $image1, $startPointX , $startPointY, 0, 0,  $width2
 				  .catch((error) => {
 					  console.error("Error writing document: ", error);
 				  });
+				});
 			</script>
 			EOM;
 	

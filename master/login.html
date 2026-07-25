@@ -3,25 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width">
-<meta name="robots" content="index, follow">
-<title>Open Air マスター 管理画面 | 豊洲スマートシティ</title> 
+<meta name="robots" content="noindex, nofollow">
+<title>管理者ログイン | 豊洲スマートシティ</title>
 <meta name="description" content="" />
 <link rel="shortcut icon" href="">
 <meta name="format-detection" content="telephone=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge"><!--IE対策-->
 
-<!-- OG --> 
-<meta property="og:title" content="">
-<meta property="og:type" content="website">
-<meta property="og:url" content="">
-<meta property="og:image" content="">
-<meta property="og:site_name" content="">
-<meta property="og:description" content="">
-	
 <!-- ▼CSS -->
 <link rel="stylesheet" type="text/css" href="../assets/css/style.css">
 <link rel="stylesheet" type="text/css" href="../assets/css/manage.css">
-
 
 <!-- ▼JS -->
 <script src="../assets/js/jquery-1.8.2.min.js" type="text/javascript"></script>
@@ -32,13 +23,12 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 	<script src="../../assets/js/common/firestore_openAir.js"></script>
-	<script src="../assets/js/auth_guard.js"></script>
+	<script src="assets/js/master_login.js"></script>
 
-	
 <!-- ▼font -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap" rel="stylesheet">	
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body class="container"  id="">
@@ -46,9 +36,8 @@
 	<header>
 		<div class="header-wrap">
 			<div class="header-left">
-				<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>	
+				<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>
 			</div>
-			<!--<div class="toTop"><a href="../index.html">ManageTop</a></div>-->
 		</div>
 	</header>
 
@@ -57,34 +46,55 @@
 		<div class="manage-nav">
 			<div class="cont-inn2">
 			<nav>
-				<h1 class="page_ttl">Open Air マスター 管理画面</h1>
+				<h1 class="page_ttl">Open Air 管理画面（管理者）</h1>
 			</nav>
 			</div>
 		</div>
 	</div>
-	
+
 	<div class="manage-wrap parent">
-		<div class="cont-inn2" id="app_manage_master">
-			<!---------------------一覧ここから-------------------->
+		<div class="cont-inn2">
+				<!---------------------ログインフォームここから-------------------->
+				<form name="form1">
+				<div class="h-bg">
+					<h2 class="h-ttl">管理者ログイン</h2>
+				</div>
+
+				<div class="manage-bg">
+					<table class="manage-table">
+						<tbody>
+							<tr>
+								<th>メールアドレス</th>
+								<td>
+									<input type="text" id="email_txt" value="" class="manage-input ">
+								</td>
+							</tr>
+							<tr>
+								<th>PASS</th>
+								<td>
+									<input type="password" id="pass_txt" value="" class="manage-input">
+								</td>
+							</tr>
+						</tbody>
+					</table>
+					</div>
+				<input type="button" name="save" id="" class="button-save" value="ログイン" onclick="loginChk_master()">
+			</form>
+
 		</div>
 	</div>
 
 	<!---------------------footerここから -------------------->
 	<footer>
-		<div class="pagetop pagetop-s">
-			<a href="#"><p class="pagetop-icon"><img src="../assets/img/icon-pagetop.png" alt="pagetop"><br>page top</p></a>
-		</div>
 		<div class="footer-wrap">
 			<div class="footer-inn">
 				<div class="footer-left">
-					<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>	
+					<div class="h-logo"><img src="../assets/img/logo.png" alt="豊洲スマートシティ"></div>
 				</div>
 				<p>©️豊洲スマートシティ推進協議会</p>
 			</div>
 		</div>
 	</footer>
-	
-<script type="text/javascript" src="../../assets/js/common/vue.js"></script>
-<script type="text/javascript" src="assets/js/app_manage_master.js"></script>	
+
 </body>
 </html>

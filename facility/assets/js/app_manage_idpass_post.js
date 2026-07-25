@@ -40,7 +40,7 @@ Vue.createApp({
 			</tbody>
 		</table>
 
-		<input type="button" name="save" id="" class="button-save" value="登録" @click="facility_update(fid,appFacilityData.login_pass)">
+		<input type="button" name="save" id="" class="button-save" value="登録" @click="facility_update()">
 	</form>
 </div>
 
@@ -53,75 +53,72 @@ Vue.createApp({
     }
   },
   methods: {
-    facility_update(id,pass) {
+    facility_update() {
       if (form1.email.value == "" || form1.pass.value == "" || form1.pass_new.value == "" || form1.pass_new_conf.value == "" ){
         //条件に一致する場合(いずれかが空の場合)
         alert("全て必須項目です"); //エラーメッセージを出力
         return false; //送信ボタン本来の動作をキャンセルします
-      } else {
-        const msg = ""
+      }
 
-　　　　	var mail = form1.email.value;
-		  var reg = /^[A-Za-z0-9]{1}[A-Za-z0-9_.-]*@{1}[A-Za-z0-9_.-]{1,}.[A-Za-z0-9]{1,}$/;
-		  if (!reg.test(mail)) {
-			  alert("メールアドレスを正しく入力してください");    //エラーメッセージを出力
-			  msg = "error"
-          		return false;    //送信ボタン本来の動作をキャンセルします
-		  }
-		  var pass_input = form1.pass.value;
-		  if (pass_input !== pass) {
-				alert("パスワードが違います");
-			  msg = "error"
-          		return false;    //送信ボタン本来の動作をキャンセルします
-		}
-		  
-		 var pass_n = form1.pass_new.value;
-		  var pass_n_conf = form1.pass_new_conf.value;
+      var mail = form1.email.value;
+      var reg = /^[A-Za-z0-9]{1}[A-Za-z0-9_.-]*@{1}[A-Za-z0-9_.-]{1,}.[A-Za-z0-9]{1,}$/;
+      if (!reg.test(mail)) {
+        alert("メールアドレスを正しく入力してください");
+        return false;
+      }
 
-		  var reg = /^[A-Za-z0-9]+$/;
-		  if (!reg.test(pass_n)) {
-			  alert("新しいパスワードは英数のみです");    //エラーメッセージを出力
-			  msg = "error"
-          		return false;    //送信ボタン本来の動作をキャンセルします
-		  }	
-		  if (!reg.test(pass_n_conf)) {
-				alert("確認用パスワードは英数字のみです");
-				msg = "error";
-				return false;
-			}
-		if (pass_n !== pass_n_conf) {
-				alert("新しいパスワードと確認用パスワードが一致しません");
-				msg = "error";
-				return false;
-		}
+      var cur_pass = form1.pass.value;
+      var pass_n = form1.pass_new.value;
+      var pass_n_conf = form1.pass_new_conf.value;
 
+      var regPass = /^[A-Za-z0-9]+$/;
+      if (!regPass.test(pass_n)) {
+        alert("新しいパスワードは英数のみです");
+        return false;
+      }
+      if (!regPass.test(pass_n_conf)) {
+        alert("確認用パスワードは英数字のみです");
+        return false;
+      }
+      if (pass_n !== pass_n_conf) {
+        alert("新しいパスワードと確認用パスワードが一致しません");
+        return false;
+      }
 
-        if (msg != "") {
-          return false; //送信ボタン本来の動作をキャンセルします
-        } else {
+      var self = this;
+      var user = firebase.auth().currentUser;
+      if (!user) {
+        alert("セッションが切れました。再度ログインしてください。");
+        location.href = "login.html";
+        return false;
+      }
 
-          const db = firebase.firestore();
-          const ts = firebase.firestore.FieldValue.serverTimestamp();
-          var id = id
-
-          db.collection("facilityData").doc(id).set({
-				mail: form1.email.value,
-				login_pass: form1.pass_new_conf.value,
-              updated_at: ts
-            }, {
-              merge: true
-            })
-            .then(() => {
-
-              console.log("Document successfully written!");
-              location.href = "index.html";
-            })
-            .catch((error) => {
-              console.error("Error writing document: ", error);
-            });
-        } //else	
-      } //else
-
+      // 現パスワードで再認証 → Firebase Auth のパスワード更新 → 連絡用メール(mail)を更新
+      var cred = firebase.auth.EmailAuthProvider.credential(user.email, cur_pass);
+      user.reauthenticateWithCredential(cred)
+        .then(function () {
+          return user.updatePassword(pass_n);
+        })
+        .then(function () {
+          var db = firebase.firestore();
+          var ts = firebase.firestore.FieldValue.serverTimestamp();
+          return db.collection("facilityData").doc(self.fid).set({
+            mail: form1.email.value,
+            updated_at: ts
+          }, { merge: true });
+        })
+        .then(function () {
+          alert("パスワードを変更しました");
+          location.href = "index.html";
+        })
+        .catch(function (error) {
+          console.error("パスワード変更エラー:", error);
+          if (error && (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential")) {
+            alert("現パスワードが違います");
+          } else {
+            alert("変更に失敗しました: " + (error && error.message ? error.message : error));
+          }
+        });
     }
 
   },
@@ -141,38 +138,28 @@ Vue.createApp({
   },
 
   mounted() {
+    const self = this;
     const fid = sessionStorage.getItem("toyosu_manage_facility_id");
-    console.log("mounted start!!");
-    firebase.auth().signInAnonymously()
-      .then(() => {
-        console.log("Auth OK!!");
-        const db = firebase.firestore();
-        console.log("facilityData Get Start!!");
-
-        db.collection("facilityData")
-          .where("f_id", "==", fid)
-          .limit(1)
-          .get()
-          .then(querySnapshot => {
-            if (querySnapshot.empty) {
-              // f_id が無い → 未ログイン扱い
-              location.href = "login.html";
-              return;
-            }
-            // ここで1件取得
-            const data = querySnapshot.docs[0].data();
-            //this.appFacilityData = data;
-			Object.assign(this.appFacilityData, data);
-            this.fid = fid;
-            console.log("facilityData Get OK!!", data);
-          })
-          .catch(error => {
-            console.log("querySnapshot ERROR!!", error);
-          });
-        console.log("facilityData Get End!!");
-      })
-      .catch(error => console.log("auth ERROR!!", error));
-    console.log("mounted End!!");
+    withAuth(function (user, db) {
+      db.collection("facilityData")
+        .where("f_id", "==", fid)
+        .limit(1)
+        .get()
+        .then(function (querySnapshot) {
+          if (querySnapshot.empty) {
+            // f_id が無い → 未ログイン扱い
+            location.href = "login.html";
+            return;
+          }
+          const data = querySnapshot.docs[0].data();
+          Object.assign(self.appFacilityData, data);
+          self.fid = fid;
+          console.log("facilityData Get OK!!", data);
+        })
+        .catch(function (error) {
+          console.log("querySnapshot ERROR!!", error);
+        });
+    });
   },
   created() {
 

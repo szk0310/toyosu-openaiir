@@ -47,7 +47,7 @@ mounted(){
 
 		this.sid = sessionStorage.toyosu_manage_space_id;
 		console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
+			ensureAuth()
 			  .then(() => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();

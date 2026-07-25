@@ -1,0 +1,89 @@
+rules_version = '2';
+
+// ============================================================
+//  Open Air / toyosuopenair  Firestore セキュリティルール
+//
+//  方針:
+//   - パスワードは Firestore に保存しない（Firebase Auth 管理）。
+//     よって表示用データの read は公開のまま（公開サイトの表示を壊さない）。
+//   - 書き込みは「ログイン済み(非匿名)ユーザー」に限定し、匿名の改ざん・削除を遮断。
+//   - facilityData の更新は本人(uid一致) または 管理者のみ。作成/削除は管理者のみ。
+//   - ideaData / caseData は管理者のみ編集。
+//   - 管理者判定は admins/{uid} ドキュメントの有無で行う（作成はコンソールで手動）。
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 非匿名でログインしているか
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    // 管理者か（admins/{uid} が存在するか）
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // 施設データ（表示用途があるため read は公開。パスワードは保存されない）
+    match /facilityData/{fid} {
+      allow read:   if true;
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+      // 本人(uid一致) または 管理者のみ更新可
+      allow update: if isAdmin()
+                    || (signedIn() && resource.data.uid == request.auth.uid);
+    }
+
+    // スペース（施設が編集）: read 公開 / write はログイン済み施設 or 管理者
+    match /spaceData/{doc} {
+      allow read:  if true;
+      allow write: if signedIn();
+    }
+
+    // カレンダー/予約: read 公開 / write はログイン済み
+    match /calendarData/{doc} {
+      allow read:  if true;
+      allow write: if signedIn();
+    }
+
+    // アイデア（管理者コンテンツ）: read 公開 / write は管理者のみ
+    match /ideaData/{doc} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // 事例（管理者コンテンツ）: read 公開 / write は管理者のみ
+    match /caseData/{doc} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // 管理者判定用: 自分のドキュメントのみ read 可。write はコンソールからのみ。
+    match /admins/{uid} {
+      allow read:  if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // 上記以外は全面禁止
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ------------------------------------------------------------
+//  （任意のさらなる強化）spaceData / calendarData を「その施設の所有者のみ」に
+//  限定したい場合は、各ドキュメントに f_id を持たせた上で下記のように書く:
+//
+//    match /spaceData/{doc} {
+//      allow read: if true;
+//      allow write: if isAdmin()
+//        || (signedIn()
+//            && get(/databases/$(database)/documents/facilityData/$(request.resource.data.f_id)).data.uid == request.auth.uid);
+//    }
+//
+//  現状は「ログイン施設なら書込可」の緩めの設定（利用者が信頼できる少数のため）。
+// ------------------------------------------------------------

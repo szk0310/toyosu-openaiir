@@ -347,7 +347,7 @@ data() {
 
     this.spaceId = sid;
 
-    firebase.auth().signInAnonymously()
+    ensureAuth()
       .then(() => {
         const db = firebase.firestore();
         return db.collection("spaceData").doc(sid).get();

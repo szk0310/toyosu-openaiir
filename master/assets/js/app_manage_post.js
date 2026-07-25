@@ -108,44 +108,65 @@ for (var i = 0; i < idLength; i++) {
 
 		if (msg != "") {
 			return false;    //送信ボタン本来の動作をキャンセルします
-		  } else {		 
+		  } else {
 			  const db = firebase.firestore();
 			  const ts = firebase.firestore.FieldValue.serverTimestamp();
+			  const contactMail = form1.email.value;
+			  const facilityName = form1.name.value;
 
-				db.collection("facilityData").doc(fid).set({
-					f_id:fid,
-					login_id: l_id,
-					login_pass: pass,
-					f_name: form1.name.value,
-					mail: form1.email.value,
-					f_category1:[],
-					s_min:null,
-					s_max:null,
-					f_release:'',
-					f_introduction:'',
-					f_image:'',
-					addess:'',
-					access:'',
-					url_web:'',
-					url_insta:'',
-					url_fb:'',
-					url_x:'',
-					lat:'',
-					lng:'',
-					f_icon:'',
-					f_map:'',
-					updated_at:ts
-					})
-					.then(() => {
-						console.log("Document successfully written!");
-					post("mail.php", {email:form1.email.value,lid:l_id,pass:pass});	
-						//location.href = "index.html";	
-					})
-					.catch((error) => {
-						console.error("Error writing document: ", error);
-						
+			  // login_id を内部メールアドレスにマッピングして Firebase Auth に登録。
+			  // 二次アプリを使い、管理者(master)のログインセッションを壊さずにユーザー作成する。
+			  const authEmail = l_id + window.AUTH_EMAIL_DOMAIN;
+			  const secondaryApp =
+				(firebase.apps || []).filter(function (a) { return a.name === "Secondary"; })[0] ||
+				firebase.initializeApp(firebase.app().options, "Secondary");
+
+			  secondaryApp.auth().createUserWithEmailAndPassword(authEmail, pass)
+				.then(function (cred) {
+					const uid = cred.user.uid;
+					// 二次アプリはユーザー作成専用。すぐサインアウトして管理者セッションに影響させない。
+					secondaryApp.auth().signOut();
+
+					// 施設データを保存（login_pass は保存しない / uid を保存してルールの所有者判定に使う）
+					return db.collection("facilityData").doc(fid).set({
+						f_id: fid,
+						uid: uid,
+						login_id: l_id,
+						f_name: facilityName,
+						mail: contactMail,
+						f_category1: [],
+						s_min: null,
+						s_max: null,
+						f_release: '',
+						f_introduction: '',
+						f_image: '',
+						addess: '',
+						access: '',
+						url_web: '',
+						url_insta: '',
+						url_fb: '',
+						url_x: '',
+						lat: '',
+						lng: '',
+						f_icon: '',
+						f_map: '',
+						updated_at: ts
+					});
+				})
+				.then(function () {
+					console.log("Document successfully written!");
+					// ID/PASS をメール通知（従来どおり）
+					post("mail.php", { email: contactMail, lid: l_id, pass: pass });
+					//location.href = "index.html";
+				})
+				.catch(function (error) {
+					console.error("登録エラー: ", error);
+					if (error && error.code === "auth/email-already-in-use") {
+						alert("このIDは既に使用されています。もう一度お試しください。");
+					} else {
+						alert("登録に失敗しました: " + (error && error.message ? error.message : error));
+					}
 				});
-		  
 		  }//else
 	 	}//else
 		
@@ -210,40 +231,23 @@ computed: {
   },
 	
 
-	mounted(){	
-		this.facilityId = sessionStorage.toyosu_manage_facility_id;
-		if (this.facilityId !== '' && this.facilityId !== null && this.facilityId !== undefined){
-
-
-			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
-			  .then(() => {
-				  console.log("Auth OK!!");
-				  const db = firebase.firestore();
-				  console.log("facilityData Get Start!!");
-
-				db.collection("facilityData").doc(this.facilityId).get()
-					  .then((doc) => {
-					  this.facilityName =  doc.data().f_name;
-					this.facilityMail =  doc.data().mail;
+	mounted(){
+		const self = this;
+		withAdmin(function (user, db) {
+			self.facilityId = sessionStorage.toyosu_manage_facility_id;
+			if (self.facilityId !== '' && self.facilityId !== null && self.facilityId !== undefined) {
+				db.collection("facilityData").doc(self.facilityId).get()
+					.then(function (doc) {
+						self.facilityName = doc.data().f_name;
+						self.facilityMail = doc.data().mail;
 					})
-
-					.catch(function(error) {
-					  console.log("querySnapshot ERROR  !!");
-				   });
-				  console.log("facilityData Get End  !!");
-								
-				})
-			  .catch(error => console.log(error));
-			console.log("auth End  !!");
-		 	console.log("mounted End  !!");
-			
-		}else{
-			this.facilityId = ""
-		}
-
-
-
+					.catch(function (error) {
+						console.log("facilityData Get ERROR!!", error);
+					});
+			} else {
+				self.facilityId = "";
+			}
+		});
     },
 	created () { 
 

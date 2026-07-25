@@ -12,47 +12,36 @@ function loginChk_facility() {
 		id_txt = form1.id_txt.value;
 		pass_txt = form1.pass_txt.value;
 
-			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
-			  .then(() => {
-				  const db = firebase.firestore();
-				 db.collection("facilityData")
-					 .where("login_id", "==", id_txt)
-					 .where("login_pass", "==", pass_txt)
-					 .get()
-					.then(querySnapshot => {
- if (!querySnapshot.empty) {
-	 // 一致した最初のドキュメントを取得
-          const doc = querySnapshot.docs[0];
-          const data = doc.data();
+		// login_id を内部メールアドレスへマッピングして Firebase Auth で認証
+		var email = id_txt + window.AUTH_EMAIL_DOMAIN;
 
-    // id　name addressを sessionStorage に保存
-	 sessionStorage.setItem('toyosu_manage_facility_id', data.f_id);
-	 sessionStorage.setItem('toyosu_manage_facility_name', data.f_name);
-	 sessionStorage.setItem('toyosu_manage_facility_address', data.address);
-	 
-      location.href = "index.html";
-    } else {
-      alert("IDまたはパスワードが違います");
-      location.href = "login.html";
-    }
-					})
-					.catch(function(error) {
-					  console.log("querySnapshot ERROR  !!");
-				   });
-				  console.log("facilityData Get End  !!");
-				}
-				)
-			  .catch(error => console.log(error));
-			console.log("auth End  !!");
-		 	console.log("mounted End  !!");
-
-		 
-
-		 
+		console.log("login start!!");
+		firebase.auth().signInWithEmailAndPassword(email, pass_txt)
+			.then(function (cred) {
+				var db = firebase.firestore();
+				// 自分の施設データを login_id で取得
+				return db.collection("facilityData")
+					.where("login_id", "==", id_txt)
+					.limit(1)
+					.get()
+					.then(function (querySnapshot) {
+						if (!querySnapshot.empty) {
+							var data = querySnapshot.docs[0].data();
+							sessionStorage.setItem('toyosu_manage_facility_id', data.f_id);
+							sessionStorage.setItem('toyosu_manage_facility_name', data.f_name);
+							sessionStorage.setItem('toyosu_manage_facility_address', data.address);
+							location.href = "index.html";
+						} else {
+							// 認証は通ったが施設データが無い（削除済みなど）
+							alert("この施設のデータが見つかりません。管理者にお問い合わせください。");
+							firebase.auth().signOut();
+						}
+					});
+			})
+			.catch(function (error) {
+				console.log("login ERROR:", error.code);
+				alert("IDまたはパスワードが違います");
+			});
 	  	}
 
 }
-
-
-

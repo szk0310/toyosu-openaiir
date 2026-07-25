@@ -310,7 +310,7 @@ Vue.createApp({
     const fid = sessionStorage.getItem("toyosu_manage_facility_id");
     this.fid = fid;
 
-    firebase.auth().signInAnonymously()
+    ensureAuth()
       .then(() => {
         const db = firebase.firestore();
         return db.collection("facilityData")
