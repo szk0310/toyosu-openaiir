@@ -81,9 +81,14 @@ jobs:
               --exclude '(^|/)firestore\.rules$' \
               ./ '${FTP_REMOTE_ROOT}/manage/';
 
-            # (2) 共有 config → <ROOT>/assets/js/common/
-            put ./_shared-config/assets/js/common/firestore_openAir.js \
-              -o '${FTP_REMOTE_ROOT}/assets/js/common/firestore_openAir.js';
+            # (2) 親階層の共有アセット一式 → <ROOT>/assets/
+            #     firestore_openAir.js / vue.js など、各HTMLが
+            #     ../../assets/... で参照するファイル群。
+            #     --only-newer なので upload_img/ の投稿画像は削除されない。
+            mirror -R --only-newer --parallel=2 \
+              --exclude '\.md$' \
+              --exclude '(^|/)\.DS_Store$' \
+              ./_shared-config/assets/ '${FTP_REMOTE_ROOT}/assets/';
 
             bye;
           "
