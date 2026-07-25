@@ -32,7 +32,7 @@ $additional_params = "-f " . $from_email;
 	$auto_reply_text .= "ID：" . $_POST['lid'] . "\n";
 	$auto_reply_text .= "Pass：" . $_POST['pass'] . "\n\n";
 
-$auto_reply_text .= "ログインページ：http://toyosu-smartcity.com/xxxxxxxxxx/manage/facility/login.html\n\n";
+$auto_reply_text .= "ログインページ：http://toyosu-smartcity.com/open_air/manage/facility/login.html\n\n";
 
 
 	$auto_reply_text .= "ID、PASSについては店舗ページにログインする際に必要となるため\n";
