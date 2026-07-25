@@ -108,17 +108,33 @@
 | `FTP_HOST` | 接続先ホスト名 | `toyosu-smartcity.com` |
 | `FTP_USER` | FTP ユーザー名 | `smartcity_ftp` |
 | `FTP_PASS` | パスワード | （CPIのFTPパスワード） |
-| `FTP_REMOTE_ROOT` | `manage/` の1つ上の階層のパス（FTPホームからの相対でも可、末尾スラッシュ不要） | `openair` |
+| `FTP_REMOTE_ROOT` | `manage/` の1つ上の階層のパス（FTPホームからの相対でも可、末尾スラッシュ不要） | `open_air` |
 | `FTP_PORT` | （任意）FTPポート。未設定なら 21 | `21` |
 
-- `FTP_REMOTE_ROOT` は「`manage/` と共有`assets/` を置く親フォルダ」です。公開URL `http://toyosu-smartcity.com/<ROOT>/manage/facility/login.html` の `<ROOT>` に相当します。
-- **注意**: 本番サーバー直下の `/manage/` は別の既存アプリ（news系）です。Open Air 管理画面は**未デプロイ**のため、`FTP_REMOTE_ROOT` には**新規の親フォルダ**（例 `openair`）を指定します（配置先はスタッフ確認中）。
+- `FTP_REMOTE_ROOT` は「`manage/` と共有`assets/` を置く親フォルダ」です。公開URL `https://toyosu-smartcity.com/<ROOT>/manage/facility/login.html` の `<ROOT>` に相当します。
+- **確定済み（2026-07-25）**: `<ROOT>` = **`open_air`**。Secrets 4件とも登録済み。本番サーバー直下の `/manage/` は別の既存アプリ（news系）なので混同しないこと。
+- サーバーは HTTP → HTTPS に 301 リダイレクトします。
 
 ### 6-2. 反映されるファイル
 | ローカル | サーバー |
 |---|---|
 | リポジトリ直下の管理画面一式（`facility/` `master/` `idea/` `case/` `assets/`） | `<ROOT>/manage/` |
-| `_shared-config/assets/js/common/firestore_openAir.js` | `<ROOT>/assets/js/common/firestore_openAir.js` |
+| `_shared-config/assets/` 一式（`js/common/firestore_openAir.js`・`js/common/vue.js` など） | `<ROOT>/assets/` |
+
+#### リポジトリに含まれない、サーバー側にだけ存在するもの
+`<ROOT>/assets/` 配下には、各HTMLが `../../assets/...` で参照する以下も必要です。CIの同期対象外なので**サーバー上で維持**します。
+
+| パス | 用途 | 状態 |
+|---|---|---|
+| `<ROOT>/assets/json/categories.json` | space_post / detail_post のカテゴリ選択肢 | ⚠️ **未設置**（原本が見つかっていない） |
+| `<ROOT>/assets/upload_img/facility/{main,icon,space}/` | 施設画像のアップロード先 | ディレクトリ作成済み |
+| `<ROOT>/assets/upload_img/{case,idea}/` | 事例・アイデア画像のアップロード先 | ディレクトリ作成済み |
+| `<ROOT>/assets/upload_img/{case,idea}/no-image.svg` | 画像未登録時のプレースホルダ | ⚠️ **未設置** |
+
+`categories.json` の形式:
+```json
+{ "space": [ { "field": "フィールド名", "name": "表示ラベル", "items": ["選択肢1", "選択肢2"] } ] }
+```
 
 `_shared-config/`・`.git`・`.github`・`*.md`・`firestore.rules` はサーバーへは転送されません（管理画面の動作に不要なため）。
 
@@ -130,4 +146,8 @@
 
 ### 6-4. 手動FTPでの反映（Actionsを使わない場合）
 Actions を使わず、FTPクライアント（FileZilla等）で直接上げてもOKです。その場合も配置は 6-2 の対応表どおり:
-`<ROOT>/manage/` にリポジトリ直下の管理画面一式、`<ROOT>/assets/js/common/firestore_openAir.js` に共有config。
+`<ROOT>/manage/` にリポジトリ直下の管理画面一式、`<ROOT>/assets/` に `_shared-config/assets/` の中身。
+
+### 6-5. 初回デプロイ記録（2026-07-25）
+`<ROOT>` = `open_air` に **FTPS で手動アップロード済み**（67ファイル＋共有config＋vue.js）。`upload_img` のディレクトリツリーも作成済み。
+公開URL: https://toyosu-smartcity.com/open_air/manage/facility/login.html
