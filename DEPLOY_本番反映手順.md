@@ -96,21 +96,23 @@
 
 ## 6. GitHub Actions での自動デプロイ（任意）
 
-`.github/workflows/deploy.yml` を用意済み。**main への push（PR #1 のマージ）または手動実行**で、CPI サーバーへ SFTP で自動反映されます。
+`.github/workflows/deploy.yml` を用意済み。**main への push（PR #1 のマージ）または手動実行**で、CPI サーバーへ FTPS（暗号化）で自動反映されます。
+
+> このサーバー(CPI)は **SFTP(22)は不可**、**FTPS（明示的SSL・証明書検証オフ）で接続可**であることを実測で確認済み。認証情報・データはSSLで暗号化して転送します。
 
 ### 6-1. 事前に GitHub Secrets を登録
 リポジトリ → **Settings → Secrets and variables → Actions → New repository secret** で以下を登録:
 
 | Secret 名 | 内容 | 例 |
 |---|---|---|
-| `SFTP_HOST` | 接続先ホスト名 | `xxxx.secure.ne.jp` |
-| `SFTP_USER` | SFTP/FTP ユーザー名 | CPI管理画面で確認 |
-| `SFTP_PASS` | パスワード | CPI管理画面で確認 |
-| `SFTP_REMOTE_ROOT` | `manage/` の1つ上の階層の絶対パス（末尾スラッシュ不要） | `/usr/home/xxxx/html/xxxxxxxxxx` |
-| `SFTP_PORT` | （任意）SSH/SFTP ポート。未設定なら 22 | `22` |
+| `FTP_HOST` | 接続先ホスト名 | `toyosu-smartcity.com` |
+| `FTP_USER` | FTP ユーザー名 | `smartcity_ftp` |
+| `FTP_PASS` | パスワード | （CPIのFTPパスワード） |
+| `FTP_REMOTE_ROOT` | `manage/` の1つ上の階層のパス（FTPホームからの相対でも可、末尾スラッシュ不要） | `openair` |
+| `FTP_PORT` | （任意）FTPポート。未設定なら 21 | `21` |
 
-- `SFTP_REMOTE_ROOT` は「`manage/` と `assets/` を含む階層」です。現在の公開URL `http://toyosu-smartcity.com/xxxxxxxxxx/manage/…` の `xxxxxxxxxx` までのサーバー実パスに相当します。CPIの管理画面（FTPアカウント情報）で確認できます。
-- 隠しパスを含むため、リポジトリには書かず Secret で保持しています。
+- `FTP_REMOTE_ROOT` は「`manage/` と共有`assets/` を置く親フォルダ」です。公開URL `http://toyosu-smartcity.com/<ROOT>/manage/facility/login.html` の `<ROOT>` に相当します。
+- **注意**: 本番サーバー直下の `/manage/` は別の既存アプリ（news系）です。Open Air 管理画面は**未デプロイ**のため、`FTP_REMOTE_ROOT` には**新規の親フォルダ**（例 `openair`）を指定します（配置先はスタッフ確認中）。
 
 ### 6-2. 反映されるファイル
 | ローカル | サーバー |
@@ -121,10 +123,11 @@
 `_shared-config/`・`.git`・`.github`・`*.md`・`firestore.rules` はサーバーへは転送されません（管理画面の動作に不要なため）。
 
 ### 6-3. 実行方法
-- **手動**: Actions タブ → 「Deploy to CPI (SFTP)」→ Run workflow
+- **手動**: Actions タブ → 「Deploy to CPI (FTPS)」→ Run workflow
 - **自動**: `main` に push（= PR #1 をマージ）した時
 
 > ⚠️ Secrets を登録する**前**に main へマージすると、初回デプロイは失敗します（認証情報が無いため）。**先に 6-1 の Secrets を登録**してからマージ／手動実行してください。
 
-### 6-4. FTPしか使えない場合
-CPI で SSH/SFTP が無効な契約の場合は、`deploy.yml` の `sftp://` を `ftp://`（平文）または FTPS へ切り替えれば動きます。SFTP が使えるなら SFTP のままが安全です（ご連絡いただければ切り替えます）。
+### 6-4. 手動FTPでの反映（Actionsを使わない場合）
+Actions を使わず、FTPクライアント（FileZilla等）で直接上げてもOKです。その場合も配置は 6-2 の対応表どおり:
+`<ROOT>/manage/` にリポジトリ直下の管理画面一式、`<ROOT>/assets/js/common/firestore_openAir.js` に共有config。
