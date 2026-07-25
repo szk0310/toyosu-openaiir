@@ -1,0 +1,85 @@
+# ============================================================
+#  CPI サーバーへの自動デプロイ（SFTP / SSH）
+#
+#  対応関係:
+#    - リポジトリ直下の管理画面ファイル一式  → サーバーの  <ROOT>/manage/
+#    - _shared-config/assets/js/common/firestore_openAir.js
+#                                            → サーバーの  <ROOT>/assets/js/common/firestore_openAir.js
+#
+#  <ROOT> は「manage/ と assets/ を含むサイトの階層」。Secret SFTP_REMOTE_ROOT で指定する
+#  （公開URLの隠しパスを含むため、リポジトリには書かず Secret で保持）。
+#
+#  必要な GitHub Secrets（Settings → Secrets and variables → Actions）:
+#    SFTP_HOST         接続先ホスト名（例: xxxx.secure.ne.jp）
+#    SFTP_USER         SFTP/FTP ユーザー名
+#    SFTP_PASS         パスワード
+#    SFTP_REMOTE_ROOT  manage/ の1つ上の階層の絶対パス（末尾スラッシュ不要）
+#                      例: /usr/home/xxxx/html/xxxxxxxxxx
+#    SFTP_PORT         （任意）SSH/SFTP ポート。未設定なら 22
+#
+#  トリガー:
+#    - 手動実行（Actions タブの「Run workflow」ボタン）
+#    - main への push（PR #1 をマージした瞬間に自動反映）
+# ============================================================
+name: Deploy to CPI (SFTP)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# 同時に複数のデプロイが走らないように直列化
+concurrency:
+  group: deploy-cpi
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Deploy via SFTP
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_PASS: ${{ secrets.SFTP_PASS }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT || '22' }}
+          SFTP_REMOTE_ROOT: ${{ secrets.SFTP_REMOTE_ROOT }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SFTP_HOST}" ] || [ -z "${SFTP_USER}" ] || [ -z "${SFTP_PASS}" ] || [ -z "${SFTP_REMOTE_ROOT}" ]; then
+            echo "::error::必要な Secrets（SFTP_HOST / SFTP_USER / SFTP_PASS / SFTP_REMOTE_ROOT）が未設定です。"
+            exit 1
+          fi
+
+          lftp -c "
+            set sftp:auto-confirm yes;
+            set net:max-retries 2;
+            set net:timeout 20;
+            open -u '${SFTP_USER}','${SFTP_PASS}' sftp://${SFTP_HOST}:${SFTP_PORT};
+
+            # (1) 管理画面ファイル一式 → <ROOT>/manage/
+            #     -R = アップロード方向 / --only-newer = 更新分のみ / 不要ファイルは除外
+            mirror -R --only-newer --parallel=4 \
+              --exclude '(^|/)\.git' \
+              --exclude '(^|/)\.github/' \
+              --exclude '(^|/)_shared-config/' \
+              --exclude '(^|/)\.DS_Store$' \
+              --exclude '(^|/)\.gitignore$' \
+              --exclude '\.md$' \
+              --exclude '(^|/)firestore\.rules$' \
+              ./ '${SFTP_REMOTE_ROOT}/manage/';
+
+            # (2) 共有 config → <ROOT>/assets/js/common/
+            put ./_shared-config/assets/js/common/firestore_openAir.js \
+              -o '${SFTP_REMOTE_ROOT}/assets/js/common/firestore_openAir.js';
+
+            bye;
+          "
+          echo "✅ デプロイ完了"

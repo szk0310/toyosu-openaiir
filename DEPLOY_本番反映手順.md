@@ -91,3 +91,40 @@
 | 認証照合 | ブラウザ側で平文比較 | Firebase サーバー側で認証 |
 | 匿名での書き込み | 可能（改ざんリスク） | **不可**（非匿名ログイン必須） |
 | 管理画面(master/idea/case) | 無認証 | **管理者ログイン必須** |
+
+---
+
+## 6. GitHub Actions での自動デプロイ（任意）
+
+`.github/workflows/deploy.yml` を用意済み。**main への push（PR #1 のマージ）または手動実行**で、CPI サーバーへ SFTP で自動反映されます。
+
+### 6-1. 事前に GitHub Secrets を登録
+リポジトリ → **Settings → Secrets and variables → Actions → New repository secret** で以下を登録:
+
+| Secret 名 | 内容 | 例 |
+|---|---|---|
+| `SFTP_HOST` | 接続先ホスト名 | `xxxx.secure.ne.jp` |
+| `SFTP_USER` | SFTP/FTP ユーザー名 | CPI管理画面で確認 |
+| `SFTP_PASS` | パスワード | CPI管理画面で確認 |
+| `SFTP_REMOTE_ROOT` | `manage/` の1つ上の階層の絶対パス（末尾スラッシュ不要） | `/usr/home/xxxx/html/xxxxxxxxxx` |
+| `SFTP_PORT` | （任意）SSH/SFTP ポート。未設定なら 22 | `22` |
+
+- `SFTP_REMOTE_ROOT` は「`manage/` と `assets/` を含む階層」です。現在の公開URL `http://toyosu-smartcity.com/xxxxxxxxxx/manage/…` の `xxxxxxxxxx` までのサーバー実パスに相当します。CPIの管理画面（FTPアカウント情報）で確認できます。
+- 隠しパスを含むため、リポジトリには書かず Secret で保持しています。
+
+### 6-2. 反映されるファイル
+| ローカル | サーバー |
+|---|---|
+| リポジトリ直下の管理画面一式（`facility/` `master/` `idea/` `case/` `assets/`） | `<ROOT>/manage/` |
+| `_shared-config/assets/js/common/firestore_openAir.js` | `<ROOT>/assets/js/common/firestore_openAir.js` |
+
+`_shared-config/`・`.git`・`.github`・`*.md`・`firestore.rules` はサーバーへは転送されません（管理画面の動作に不要なため）。
+
+### 6-3. 実行方法
+- **手動**: Actions タブ → 「Deploy to CPI (SFTP)」→ Run workflow
+- **自動**: `main` に push（= PR #1 をマージ）した時
+
+> ⚠️ Secrets を登録する**前**に main へマージすると、初回デプロイは失敗します（認証情報が無いため）。**先に 6-1 の Secrets を登録**してからマージ／手動実行してください。
+
+### 6-4. FTPしか使えない場合
+CPI で SSH/SFTP が無効な契約の場合は、`deploy.yml` の `sftp://` を `ftp://`（平文）または FTPS へ切り替えれば動きます。SFTP が使えるなら SFTP のままが安全です（ご連絡いただければ切り替えます）。
