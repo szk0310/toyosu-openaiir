@@ -195,7 +195,7 @@ HTTP でアクセスすると HTTPS へ 301 リダイレクトされます。
 ### 3-4. GitHub と自動デプロイ
 
 - リポジトリ: https://github.com/szk0310/toyosu-openaiir
-- ブランチ `firebase-auth-migration` → **PR #1（未マージ）**
+- ブランチ `firebase-auth-migration` → **PR #1 は 2026-07-26 にマージ済み**。今回の変更はすべて `main` に入っています
 - workflow: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)（`lftp` による FTPS 同期）
 - 登録済み Secrets（値は GitHub 上のみ。この資料には記載しません）
 
@@ -206,7 +206,10 @@ HTTP でアクセスすると HTTPS へ 301 リダイレクトされます。
 | `FTP_PASS`        | FTPパスワード  |
 | `FTP_REMOTE_ROOT` | `open_air`   |
 
-⚠️ **`main` への push（＝PR #1 のマージ）で自動デプロイが走ります。** 意図しないタイミングでマージしないでください。
+⚠️ **`main` に push すると自動デプロイが走ります。** 以降、`main` を更新する＝本番へ即反映されると考えてください。
+
+**動作実績**: 2026-07-26 の PR #1 マージで初回実行、**1分1秒で成功**（run ID `30164894746`）。
+手動実行したい場合は `Actions` タブ →「Deploy to CPI (FTPS)」→ `Run workflow` から可能です。
 
 ---
 
@@ -312,10 +315,20 @@ FTPパスワードが作業中にチャット上で平文でやり取りされ�
 セキュリティルールで匿名ユーザーの書き込みは遮断済みのため実害はありませんが、
 不要であれば `Authentication → Users` から削除して構いません。
 
-### 5-6. PR #1 が未マージ
+### 5-6. ~~PR #1 が未マージ~~ → **完了（2026-07-26）**
 
-現在 `firebase-auth-migration` ブランチに6コミット。動作確認が済み次第マージしてください。
-マージすると自動デプロイが走り、同じ内容が再アップロードされます（冪等なので安全です）。
+PR #1（9コミット）をマージ済み。これにより初回の自動デプロイが実行され、成功しています。
+`main` の内容と本番サーバーの内容は一致しています。
+
+### 5-7. `actions/checkout@v4` の Node.js 20 非推奨警告（対応は任意）
+
+デプロイは成功していますが、実行ログに以下の警告が出ます。
+
+> Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4
+
+**現時点では自動的に Node 24 で実行されるため実害はありません。** 将来 GitHub が Node 20 の
+サポートを完全に打ち切った際に備えるなら、[.github/workflows/deploy.yml](.github/workflows/deploy.yml) の
+`uses: actions/checkout@v4` を `@v5` に上げてください（1行の変更です）。
 
 ---
 
