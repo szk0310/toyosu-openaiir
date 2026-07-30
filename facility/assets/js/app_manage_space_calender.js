@@ -299,7 +299,10 @@ generateCalendar() {
 
       try {
         await db.collection("calendarData").doc(docId).set({
-          statusMap: this.statusMap
+          statusMap: this.statusMap,
+          s_id: this.sid,
+          // uid は所有者判定に必須。これが無いとルールに拒否され保存できない。
+          uid: firebase.auth().currentUser.uid
         })
         this.monthCache[key] = {...this.statusMap}
         this.originalStatusMap = {...this.statusMap}
@@ -320,8 +323,9 @@ generateCalendar() {
       const sid = this.sid
       const db = firebase.firestore()
       ensureAuth()
-        .then(() => {
-          db.collection("spaceData").where("s_id", "==", sid).get()
+        .then((user) => {
+          // uid でも絞る（ルールが所有者限定のため、s_id だけでは拒否される）
+          db.collection("spaceData").where("s_id", "==", sid).where("uid", "==", user.uid).get()
             .then(querySnapshot => {
               querySnapshot.forEach(doc => {
                 const data = doc.data()

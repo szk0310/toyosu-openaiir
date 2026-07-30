@@ -251,9 +251,9 @@ Vue.createApp({
 		  db.collection("facilityData").doc(id).set(saveData, { merge: true })
 			.then(() => {
 
-			  // ② spaceData の f_id が一致するものを取得
+			  // ② 自分の spaceData を取得（ルールが所有者限定のため uid で絞る）
 			  return db.collection("spaceData")
-				.where("f_id", "==", id)
+				.where("uid", "==", firebase.auth().currentUser.uid)
 				.get();
 
 			})
@@ -311,10 +311,11 @@ Vue.createApp({
     this.fid = fid;
 
     ensureAuth()
-      .then(() => {
+      .then((user) => {
         const db = firebase.firestore();
+        // uid で絞る（セキュリティルールが所有者限定のため）
         return db.collection("facilityData")
-                 .where("f_id", "==", fid)
+                 .where("uid", "==", user.uid)
                  .limit(1)
                  .get();
       })

@@ -94,12 +94,13 @@ Vue.createApp({
 		 console.log(this.fid);
 			console.log("mounted start!!");
 			ensureAuth()
-			  .then(() => {
+			  .then((user) => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();
 				  console.log("spaceData Get Start!!");
 				  var array = [];
-				  db.collection("spaceData").where("f_id", "==", fid) .get()
+				  // uid で絞る（セキュリティルールが所有者限定のため）
+				  db.collection("spaceData").where("uid", "==", user.uid) .get()
 					.then(querySnapshot => {
 					  console.log("querySnapshot forEach Start!!");
 					  querySnapshot.forEach(doc => {
