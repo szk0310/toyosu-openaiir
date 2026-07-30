@@ -85,14 +85,20 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/spaceData/$(request.resource.data.s_id)).data.uid == request.auth.uid;
     }
 
-    // 施設データ（login_id・担当者メールを含む。所有者と管理者のみ）
+    // 施設データ（表示用の情報のみ。login_id と担当者メールは facilityPrivate に分離済み）
     match /facilityData/{fid} {
-      allow get:    if isAdmin() || missingDoc() || ownsExisting();
-      allow list:   if isAdmin() || ownsExisting();
+      // 公開サイトの施設詳細ページが doc(f_id).get() で読むため単体取得は公開。
+      // 秘匿情報を含まないので、文書全体がブラウザに渡っても問題ない。
+      allow get:    if true;
+      // 公開サイトの「マップから探す」(map.html)が
+      //   .where("f_release","==","on") で一覧取得するため、公開中の施設に限り許可。
+      //   非公開の施設は一覧に出ない。
+      allow list:   if isAdmin() || ownsExisting()
+                    || resource.data.f_release == 'on';
       allow create: if isAdmin()
                     && fid == request.resource.data.f_id && numericId(fid);
       allow delete: if isAdmin();
-      // 施設本人の更新では uid / f_id / login_id を変更させない。
+      // 施設本人の更新では uid / f_id を変更させない。
       // これらが変わると spaceData との紐付けや管理者画面の表示が壊れる。
       // （f_release は施設が自分で公開/非公開を切り替える仕様なので制限しない）
       allow update: if isAdmin()
