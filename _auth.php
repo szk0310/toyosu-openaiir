@@ -306,8 +306,11 @@ function openair_prepare_image($tmpName, $backPage) {
     if ($needMB > OPENAIR_MAX_MEMORY_MB) {
         openair_upload_error("画像が大きすぎて処理できません（{$w}×{$h}px）。縮小してからアップロードしてください。", $backPage);
     }
-    $current = (int)ini_get('memory_limit');
-    if ($needMB > $current) { @ini_set('memory_limit', $needMB . 'M'); }
+    // memory_limit が -1（無制限）の場合は引き下げてはいけない
+    $current = trim((string)ini_get('memory_limit'));
+    if ($current !== '-1' && $needMB > (int)$current) {
+        @ini_set('memory_limit', $needMB . 'M');
+    }
 
     switch ($mime) {
         case 'image/jpeg':
