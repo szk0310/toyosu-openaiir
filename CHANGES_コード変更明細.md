@@ -1031,6 +1031,114 @@ Firestore を直接読んでいた。
 
 ---
 
+# 第10部 秘匿情報の分離（2026-07-30）— facilityPrivate の新設
+
+## 10-1. 解けなかった制約
+
+公開サイトの施設詳細ページ（`facility.html`）は次のように読む。
+
+```js
+const doc = await db.collection("facilityData").doc(this.fid).get();
+this.facilityArray = doc.data();     // ← 文書全体がブラウザに渡る
+```
+
+表示に使うのは `f_name` / `address` / `access` / `f_introduction` の4つだけだが、
+**Firestore にはフィールド単位で読み取りを制限する仕組みがない。**
+`facilityData` に `login_id` と担当者メールが同居している限り、
+read を許可した瞬間にそれらも流出する。
+
+`f_id` は公開されている `spaceData` にも入っているため、
+「IDを知らなければ大丈夫」も成り立たない。
+
+## 10-2. 分離の設計
+
+| コレクション | 内容 | read |
+|---|---|---|
+| `facilityData` | 表示用の施設情報＋`uid`（所有者判定用） | 単体は公開／一覧は `f_release=='on'` のみ公開 |
+| **`facilityPrivate/{f_id}`** | **`login_id`・`mail`**・`uid`・`f_id` | 所有者と管理者のみ |
+
+ドキュメントIDは両方 `f_id` で対応させ、参照を単純にした。
+
+```js
+match /facilityPrivate/{fid} {
+  allow get:    if isAdmin() || missingDoc() || ownsExisting();
+  allow list:   if isAdmin();
+  allow create: if isAdmin() && fid == request.resource.data.f_id && numericId(fid);
+  // 施設本人は連絡先メールのみ変更できる。login_id と f_id は固定。
+  allow update: if isAdmin()
+                || (ownsExisting() && ownsIncoming()
+                    && unchanged('f_id') && unchanged('login_id'));
+  allow delete: if isAdmin();
+}
+```
+
+`facilityData` の `list` を「公開中のみ」に留めたのは、公開サイトの
+「マップから探す」が `.where("f_release","==","on")` で一覧するため。
+**無条件の一覧は管理者と本人のみ**なので、全施設の情報を機械的に収集することはできない。
+
+## 10-3. コード変更
+
+| ファイル | 変更 |
+|---|---|
+| `master/assets/js/app_manage_post.js` | 登録時に `facilityPrivate` → `facilityData` の順で2回書き込み。編集画面の読み込みと更新も2コレクションに対応 |
+| `facility/assets/js/app_manage_idpass_post.js` | 連絡先メールの読み書きを `facilityPrivate` へ。`fid` を sessionStorage ではなく取得した文書IDから取るよう変更 |
+
+`manage_login.js` は `uid` で引くため変更不要。`master/app_manage_master.js` の
+一覧は `f_name` と `f_release` しか表示せず、公開切替も `f_release` / `s_release` だけを
+書くため影響なし。
+
+## 10-4. 適用順序（露出の窓を作らない）
+
+| 順 | 内容 | なぜこの順か |
+|---|---|---|
+| 1 | `facilityPrivate` を6件作成 | 追加のみ。既存への影響なし |
+| 2 | ルールに `facilityPrivate` を追加（`facilityData` はまだ非公開） | この時点で公開はしない |
+| 3 | 管理画面のコードをデプロイ | 新旧どちらのデータ形でも動く状態にする |
+| 4 | `facilityData` から `login_id` / `mail` を削除 | ここで秘匿情報が無くなる |
+| 5 | `facilityData` の read を公開 | 秘匿情報が無くなった**後**に公開する |
+
+逆順にすると、秘匿情報を含んだまま公開される瞬間が生まれる。
+
+## 10-5. 検証
+
+作業中にスタッフが新コードで施設を登録しており、**実運用での検証が取れた。**
+
+```
+facilityPrivate/1785399138156
+  login_id = 7NNJz0T27d      ← Auth の 7nnjz0t27d@toyosu-openair.local と一致
+  mail     = niya@yogus.com
+  uid      = Ug2OT1wj...      ← facilityData 側と一致
+
+facilityData/1785399138156
+  login_id / mail の混入: なし
+```
+
+整合性チェック（全7件）: `facilityPrivate` の欠落0件、孤児0件、`facilityData` に
+秘匿情報が残る文書0件。
+
+未認証アクセスの最終確認:
+
+| | 結果 |
+|---|---|
+| `facilityData` 単体 / `spaceData` 単体 / `caseData` / `ideaData` / `calendarData` | 200 |
+| `facilityData` 公開中一覧 / `spaceData` 公開中一覧 | 200（4件 / 10件）|
+| **`facilityPrivate` 単体・一覧** | **403** |
+| `facilityData` 無条件一覧 / `spaceData` 無条件一覧 | 403 |
+
+## 10-6. 途中で起きた事故
+
+**リポジトリのルールが本番より古いまま残った。** GitHub のプッシュ保護
+（Mapbox トークンの誤検知）でコミットが弾かれた際、`git reset` の操作で
+ローカルの `firestore.rules` の編集が失われ、コミットされていなかった。
+本番には適用済みだったため気づきにくく、**その状態でリポジトリからデプロイすると
+公開サイトが再び壊れる**危険があった。検証で発見し、本番の内容を書き戻して同期した。
+
+**教訓**: 本番に直接適用する変更は、リポジトリとの一致を必ず差分で確認する。
+`firebase deploy` はローカルファイルを送るため、「本番に出したから
+リポジトリにも入っている」とは限らない。
+
+---
+
 # 参照
 
 - [HANDOFF_スタッフ向け.md](HANDOFF_スタッフ向け.md) — 概要・運用手順・未解決課題

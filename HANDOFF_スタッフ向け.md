@@ -67,9 +67,11 @@ Promise を返す互換版2つを足しています。これにより既存コ�
 
 | コレクション | 読み取り | 書き込み |
 | --- | --- | --- |
-| `facilityData` | **所有者(uid一致)と管理者のみ** | 作成/削除=管理者のみ、更新=所有者または管理者 |
-| `spaceData` / `calendarData` | **所有者(uid一致)と管理者のみ** | 所有者または管理者 |
-| `ideaData` / `caseData` | **管理者のみ** | 管理者のみ |
+| `facilityData`（表示用の施設情報） | **単体取得は公開**／一覧は公開中(`f_release=='on'`)のみ公開<br>無条件の一覧は管理者と本人のみ | 作成/削除=管理者のみ、更新=所有者または管理者 |
+| **`facilityPrivate`（`login_id`・担当者メール）** | **所有者と管理者のみ** | 作成/削除=管理者、更新=所有者または管理者（`login_id` は固定） |
+| `spaceData` | 公開中(`s_release=='on'`)は公開／所有者と管理者は全件 | 所有者または管理者 |
+| `calendarData` | 公開（空き状況は公開情報） | 所有者または管理者 |
+| `ideaData` / `caseData` | 公開（公開サイトに掲載） | 管理者のみ |
 | `admins` | 本人のみ | **禁止**（コンソールから手動で作成） |
 | その他すべて | 禁止 | 禁止 |
 
@@ -561,6 +563,41 @@ curl -X PATCH -H "Authorization: Bearer $(gcloud auth application-default print-
    - `caseData` / `ideaData` / `calendarData` の全件
    - `spaceData` を `s_release == "on"` で絞った取得
 3. あわせて `facilityData` が `PERMISSION_DENIED` のままであることを確認する
+
+---
+
+### 5-14. 【重要】ログインIDと担当者メールは `facilityPrivate` にあります
+
+2026-07-30、公開サイトの施設詳細ページを安全に表示するため、
+**`facilityData` から秘匿情報を別コレクションへ分離**しました。
+
+| コレクション | 入っているもの | 誰が読めるか |
+| --- | --- | --- |
+| `facilityData` | 施設名・住所・アクセス・紹介文・座標・画像・公開フラグなど**表示用の情報** | **誰でも**（単体取得。一覧は公開中のみ） |
+| **`facilityPrivate`** | **`login_id`・担当者メール**・`uid` | **所有者と管理者のみ** |
+
+**なぜ分けたか**: 公開サイトは `facilityData` を `doc(f_id).get()` で読みます。
+Firestore は**文書全体をブラウザに返す**ため、同じ文書に `login_id` と
+担当者メールを置いたままでは、詳細ページを表示できるようにした瞬間に
+それらも一緒に流出します。フィールド単位で隠す仕組みは Firestore にありません。
+
+**ドキュメントIDは両方とも `f_id` で対応**しています。
+
+**⚠️ 改修する人へ**
+- 施設の**登録**は2コレクションへの書き込みが必要です（[master/assets/js/app_manage_post.js](master/assets/js/app_manage_post.js)）。
+  片方だけ書くと不整合になります
+- **担当者メールの読み書きは `facilityPrivate`** です。`facilityData` に `mail` を
+  書き足すと公開サイト経由で流出します。**絶対に戻さないでください**
+- `login_id` も同様です。認証は `uid` で行うので、`facilityData` に持たせる必要はありません
+- 整合性の確認方法:
+  ```
+  facilityData の件数 == facilityPrivate の件数
+  facilityData に login_id / mail が無いこと
+  ```
+
+**master 画面の運用**: 登録と公開/非公開の切り替えのみで、施設情報の編集は行わない
+（2026-07-30 確認）。公開切替は `f_release` と `s_release` だけを書くため、
+この分離の影響を受けません。
 
 ---
 
