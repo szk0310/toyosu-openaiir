@@ -36,5 +36,8 @@
     </IfModule>
 </FilesMatch>
 
+# 公開鍵キャッシュ用ディレクトリへのアクセスを禁止
+RedirectMatch 404 ^/.*/manage/\.cache(/.*)?$
+
 # ディレクトリ一覧の表示を禁止
 Options -Indexes

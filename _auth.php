@@ -29,7 +29,12 @@ if (!defined('OPENAIR_AUTH')) { define('OPENAIR_AUTH', 1); }
 
 const OPENAIR_PROJECT_ID = 'toyosuopenair';
 const OPENAIR_CERT_URL   = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
-const OPENAIR_CERT_CACHE = '/tmp/openair_fb_certs.json';
+// ★ キャッシュ先は /tmp のような共有ディレクトリに固定しない。
+//   共有ホスティングで他テナントが書き込めると、偽の公開鍵を置かれて
+//   任意の ID トークンを検証通過させられる（認証全体が突破される）。
+//   スクリプト配下の非公開ディレクトリに置き、所有者も検証する。
+const OPENAIR_CERT_DIR   = __DIR__ . '/.cache';
+const OPENAIR_CERT_CACHE = OPENAIR_CERT_DIR . '/fb_certs.json';
 const OPENAIR_CERT_TTL   = 3600;   // 1時間
 const OPENAIR_LEEWAY     = 60;     // 時刻ずれの許容（秒）
 
@@ -55,10 +60,22 @@ function openair_b64url_decode($s) {
 }
 
 // ------------------------------------------------------------
-//  Google の公開鍵を取得（/tmp にキャッシュ）
+//  キャッシュファイルが自分（同一UID）の所有物か確認する。
+//  他者が書いたファイルを公開鍵として信用しないための防御。
+// ------------------------------------------------------------
+function openair_cache_is_trustworthy() {
+    if (!is_readable(OPENAIR_CERT_CACHE)) { return false; }
+    $owner = @fileowner(OPENAIR_CERT_CACHE);
+    if ($owner === false) { return false; }
+    if (function_exists('getmyuid') && $owner !== getmyuid()) { return false; }
+    return true;
+}
+
+// ------------------------------------------------------------
+//  Google の公開鍵を取得（非公開ディレクトリにキャッシュ）
 // ------------------------------------------------------------
 function openair_fetch_certs() {
-    if (is_readable(OPENAIR_CERT_CACHE)
+    if (openair_cache_is_trustworthy()
         && (time() - filemtime(OPENAIR_CERT_CACHE)) < OPENAIR_CERT_TTL) {
         $cached = json_decode((string)file_get_contents(OPENAIR_CERT_CACHE), true);
         if (is_array($cached) && $cached) { return $cached; }
@@ -80,13 +97,15 @@ function openair_fetch_certs() {
     $certs = $body ? json_decode($body, true) : null;
     if (!is_array($certs) || !$certs) {
         // 取得できない場合、期限切れキャッシュでも使う（可用性を優先）
-        if (is_readable(OPENAIR_CERT_CACHE)) {
+        if (openair_cache_is_trustworthy()) {
             $stale = json_decode((string)file_get_contents(OPENAIR_CERT_CACHE), true);
             if (is_array($stale) && $stale) { return $stale; }
         }
         openair_deny(503, '認証基盤に接続できませんでした。時間をおいて再度お試しください。');
     }
-    @file_put_contents(OPENAIR_CERT_CACHE, json_encode($certs));
+    if (!is_dir(OPENAIR_CERT_DIR)) { @mkdir(OPENAIR_CERT_DIR, 0700, true); }
+    @file_put_contents(OPENAIR_CERT_CACHE, json_encode($certs), LOCK_EX);
+    @chmod(OPENAIR_CERT_CACHE, 0600);
     return $certs;
 }
 
@@ -169,6 +188,23 @@ function openair_firestore_can_get($collection, $docId, $idToken) {
         curl_exec($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+    } elseif (ini_get('allow_url_fopen')) {
+        // curl が無い環境向けのフォールバック。これが無いと、正しくログイン
+        // していても全員が 403 になり、原因の分かりにくい機能停止になる。
+        $ctx = stream_context_create(['http' => [
+            'method'        => 'GET',
+            'header'        => 'Authorization: Bearer ' . $idToken . "\r\n",
+            'timeout'       => 15,
+            'ignore_errors' => true,
+        ]]);
+        @file_get_contents($url, false, $ctx);
+        if (isset($http_response_header[0])
+            && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m)) {
+            $code = (int)$m[1];
+        }
+    } else {
+        // 権限を判定する手段が無い。拒否ではなくサーバー側の問題として扱う。
+        openair_deny(503, '権限を確認できませんでした。サーバー設定をご確認ください。');
     }
     return $code === 200;
 }

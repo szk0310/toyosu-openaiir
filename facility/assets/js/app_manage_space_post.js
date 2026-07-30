@@ -347,8 +347,14 @@ data() {
     this.facilityName = sessionStorage.getItem("toyosu_manage_facility_name");
     this.facilityAdd = sessionStorage.getItem("toyosu_manage_facility_address");
 	  
+    // ★ カテゴリJSONの読み込みは early return より前に開始する。
+    //   新規登録時は sid が無いためここで return するので、チェーンの中に
+    //   置くと新規登録画面だけカテゴリ選択UIが描画されなくなる。
+    //   読み込みを先に始めつつ、完了は下のチェーンで待つ（競合も防げる）。
+    const catsReady = this.loadCategories();
+
     const sid = sessionStorage.getItem("toyosu_manage_space_id");
-    if (!sid) return;
+    if (!sid) return;   // 新規登録。以降の既存データ読み込みは不要
 
     this.spaceId = sid;
 
@@ -356,7 +362,7 @@ data() {
       // ★ カテゴリJSONの読み込み完了を待ってから Firestore を読む。
       //   逆順だと、後から走る loadCategories が選択値を空配列で上書きし、
       //   そのまま保存すると既存カテゴリが消える。
-      .then(() => this.loadCategories())
+      .then(() => catsReady)
       .then(() => {
         const db = firebase.firestore();
         return db.collection("spaceData").doc(sid).get();
