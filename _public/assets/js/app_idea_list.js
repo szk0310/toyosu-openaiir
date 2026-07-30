@@ -100,10 +100,10 @@ return
 this.appIdeaArray=JSON.parse(saved)
 
 //spaceData get
-firebase.auth().signInAnonymously()
+Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/
 .then(()=>{
 const db=firebase.firestore()
-db.collection("spaceData").get()
+db.collection("spaceData").where("s_release","==","on").get()/*公開中のみ(2026-07-30)*/
 .then(snapshot=>{
 let array=[]
 snapshot.forEach(doc=>{

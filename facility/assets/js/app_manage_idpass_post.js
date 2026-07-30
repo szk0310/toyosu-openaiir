@@ -25,15 +25,16 @@ Vue.createApp({
 					</td>
 				</tr>
 				<tr>
-					<th>新パスワード<span class="post-req">*</span></th>
+					<th>新パスワード</th>
 					<td>
 						<input type="password" id="pass_new" name="pass_new" class="manage-input" autocomplete="new-password">
 					</td>
 				</tr>
 				<tr>
-					<th>新パスワード確認<span class="post-req">*</span></th>
+					<th>新パスワード確認</th>
 					<td>
 						<input type="password" id="pass_new_conf" name="pass_new_conf" class="manage-input" autocomplete="new-password">
+						<p>※パスワードを変更しない場合は、新パスワードの2欄を空のままにしてください（メールアドレスのみ更新されます）。</p>
 					</td>
 				</tr>
 
@@ -54,10 +55,11 @@ Vue.createApp({
   },
   methods: {
     facility_update() {
-      if (form1.email.value == "" || form1.pass.value == "" || form1.pass_new.value == "" || form1.pass_new_conf.value == "" ){
-        //条件に一致する場合(いずれかが空の場合)
-        alert("全て必須項目です"); //エラーメッセージを出力
-        return false; //送信ボタン本来の動作をキャンセルします
+      // メールアドレスと現パスワードは必須。
+      // 新パスワードは任意で、空ならメールアドレスだけを更新する。
+      if (form1.email.value == "" || form1.pass.value == "") {
+        alert("メールアドレスと現パスワードは必須です");
+        return false;
       }
 
       var mail = form1.email.value;
@@ -71,18 +73,29 @@ Vue.createApp({
       var pass_n = form1.pass_new.value;
       var pass_n_conf = form1.pass_new_conf.value;
 
-      var regPass = /^[A-Za-z0-9]+$/;
-      if (!regPass.test(pass_n)) {
-        alert("新しいパスワードは英数のみです");
-        return false;
-      }
-      if (!regPass.test(pass_n_conf)) {
-        alert("確認用パスワードは英数字のみです");
-        return false;
-      }
-      if (pass_n !== pass_n_conf) {
-        alert("新しいパスワードと確認用パスワードが一致しません");
-        return false;
+      // 新パスワードを変更するかどうか
+      var changePass = (pass_n !== "" || pass_n_conf !== "");
+
+      if (changePass) {
+        var regPass = /^[A-Za-z0-9]+$/;
+        if (pass_n === "" || pass_n_conf === "") {
+          alert("パスワードを変更する場合は、新パスワードと確認用の両方を入力してください");
+          return false;
+        }
+        if (!regPass.test(pass_n) || !regPass.test(pass_n_conf)) {
+          alert("新しいパスワードは英数字のみで入力してください");
+          return false;
+        }
+        // Firebase Authentication の下限が6文字。
+        // これを確認しないと auth/weak-password で必ず失敗する。
+        if (pass_n.length < 6) {
+          alert("新しいパスワードは6文字以上で入力してください");
+          return false;
+        }
+        if (pass_n !== pass_n_conf) {
+          alert("新しいパスワードと確認用パスワードが一致しません");
+          return false;
+        }
       }
 
       var self = this;
@@ -112,10 +125,14 @@ Vue.createApp({
           }, { merge: true });
         })
         .then(function () {
+          // 新パスワードが空なら、パスワードは変更しない
+          if (!changePass) { return null; }
           return user.updatePassword(pass_n);
         })
         .then(function () {
-          alert("パスワードを変更しました。次回のログインから新しいパスワードをお使いください。");
+          alert(changePass
+            ? "メールアドレスとパスワードを変更しました。次回のログインから新しいパスワードをお使いください。"
+            : "メールアドレスを変更しました。");
           location.href = "index.html";
         })
         .catch(function (error) {
@@ -123,8 +140,12 @@ Vue.createApp({
           if (error && (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential")) {
             alert("現パスワードが違います");
           } else {
-            // ここに来た場合、パスワードは変更されていない（最後に実行しているため）
-            alert("変更に失敗しました。パスワードは変更されていません。\n" + (error && error.message ? error.message : error));
+            // 実行順序は 再認証 → メール更新 → パスワード更新。
+            // パスワード更新は最後なので、ここに来た時点で未変更のことが多いが、
+            // メールアドレスは既に更新されている可能性がある。
+            alert("変更に失敗しました。パスワードは変更されていません。\n"
+                  + "（メールアドレスは更新されている場合があります。画面を開き直してご確認ください）\n"
+                  + (error && error.message ? error.message : error));
           }
         });
     }

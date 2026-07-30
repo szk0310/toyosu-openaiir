@@ -168,7 +168,10 @@ methods: {
   const db = firebase.firestore();
   try {
     const snapshot = await db.collection("spaceData")
-      .where("f_id", "==", this.fid)   // ← ここ修正
+      .where("f_id", "==", this.fid)
+      // 公開中のスペースのみ表示する。セキュリティルール側も
+      // 未認証には公開中しか見せないため、この条件が必須。
+      .where("s_release", "==", "on")
       .get();
 
     this.spaces = snapshot.docs.map(doc => ({

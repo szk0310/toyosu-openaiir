@@ -3,3 +3,6 @@
 
 # Firebase 公開鍵のローカルキャッシュ（サーバー上で自動生成）
 .cache/
+
+# デプロイ時に GitHub Secret から生成する（リポジトリには置かない）
+_public/assets/js/common/mapbox_config.js

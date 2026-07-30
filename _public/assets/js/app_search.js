@@ -197,7 +197,7 @@ data() {
       .catch(err => console.error("カテゴリJSON読み込み失敗", err));
 
 
-    firebase.auth().signInAnonymously()
+    Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/
       .then(() => {
 
         const db = firebase.firestore();

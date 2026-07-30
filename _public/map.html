@@ -27,6 +27,7 @@
 
 	<link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
 	<script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
+	<script src="assets/js/common/mapbox_config.js"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 </head>
@@ -122,7 +123,10 @@
 <script src="assets/js/common/firestore_openAir.js"></script>
 
 <script>
-mapboxgl.accessToken = 'REDACTED_MAPBOX_TOKEN' /* リポジトリに秘匿値を残さないため伏せ字化。実値は本番 map.html を参照 */;
+// アクセストークンはリポジトリに置かない。デプロイ時に GitHub Secret
+// (MAPBOX_TOKEN) から assets/js/common/mapbox_config.js が生成される。
+mapboxgl.accessToken = window.MAPBOX_TOKEN;
+if (!mapboxgl.accessToken) { console.error("Mapbox のアクセストークンが読み込まれていません"); }
 const initialCenter = [139.791221, 35.650561];
 //const initialZoom = 14;
 const mediaQuery = window.matchMedia('(max-width: 768px)');
@@ -407,7 +411,7 @@ function showInfo(f){
 }
 
 // --- 初期ロード ---
-firebase.auth().signInAnonymously().then(()=>{
+Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/.then(()=>{
   loadCategories().then(()=>loadFacilityData());
 });
 
