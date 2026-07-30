@@ -503,17 +503,11 @@ FTPS でサーバーへ同期する GitHub Actions です。詳細は
 
 # 第4部 残存リスク・改修時の注意
 
-## 4-1. ⚠️ 画像アップロード PHP にサーバー側の認証がない
+## 4-1. ~~画像アップロード PHP にサーバー側の認証がない~~ → **解消済み（2026-07-30）**
 
-`upload_image*.php` に加えた `ensureAuth()` は**ブラウザ側の JavaScript** です。
-PHP がファイルを受け取って保存する処理そのものには認証チェックがありません。
-
-つまり **URL を知っていれば、ログインせずに直接 POST して画像を置くことは技術的に可能**です。
-（ただし Firestore への登録は行われないため、管理画面には現れません）
-
-今回の改修範囲は「パスワードの平文保存の解消」であり、ここには手を入れていません。
-対処するなら PHP 側で Firebase の ID トークンを検証する実装が必要で、相応の追加工事になります。
-**運用上の判断としてリスクを認識しておいてください。**
+以前は `upload_image*.php` に加えた `ensureAuth()` がブラウザ側の JavaScript にすぎず、
+PHP がファイルを受け取って保存する処理自体には認証がありませんでした。
+**現在は [_auth.php](_auth.php) が PHP 側で Firebase の IDトークンを検証します**（第7部）。
 
 ## 4-2. 施設削除時に Auth アカウントが残る
 
@@ -719,6 +713,153 @@ end-to-end で検証**しています。
 確認してから行ってください。今回は `facilityData` に `login_id` と担当者メールアドレスが
 同居していたことが問題を大きくしました。表示用データと認証・連絡先データは、本来
 別コレクションに分けるべきです。
+
+---
+
+# 第7部 セキュリティ改修 第2弾（2026-07-30）— PHPの防御とバグ修正
+
+外部レビューを受けて実施した改修。フェーズ0〜5に分けて適用した。
+
+## 7-1. 何が問題だったか
+
+フロントは Firebase Auth と Firestore ルールで守られていた一方、**PHP は同じ守りの外**にあった。
+認証は PHP が出力する HTML 内の `auth_guard.js` にしか無く、PHP の処理は認証と無関係に実行される。
+本番URLは公開済みのため、第三者が `curl` で直接叩ける状態だった。
+
+| # | 問題 | 悪用の内容 |
+|---|---|---|
+| 1 | mail.php に認証・宛先検証が無い | 当社名義で任意の宛先へ、ID/PASSとログインリンクを含む信用度の高いフィッシングメールを無制限に送信できる。改行除去も無いためBcc追加も成立 |
+| 2 | パストラバーサル | `id=../../foo` で `/open_air/` 配下の任意ディレクトリに画像を設置。`time()` が予測可能なため既存画像の上書き改ざんも可能 |
+| 3 | 反射型XSS | `$js_id = '"'.$id.'"'` を `<script>` 内へ直出力。管理者に踏ませれば Firestore を全操作できる |
+| 4 | 認証ガード未読込5ページ | `sessionStorage.setItem(...)` 一行で開けた |
+| 5 | idea/case の参照切れ | `../assets/js/firestore.js` が404で Firebase が初期化されていなかった |
+
+> なおアップロードは `finfo` でMIME判定し GD で再エンコードしているため、
+> PHPファイルアップロードによる任意コード実行は成立しない。ここは元の設計が正しく効いていた。
+
+## 7-2. 適用順序
+
+| フェーズ | 内容 |
+|---|---|
+| 0 | **mail.php の送信を緊急停止**（メールレピュテーション毀損は回復不能なため最優先） |
+| 1 | `_auth.php` を新設し5本のPHPへ適用。サニタイズ・XSS対策・宛先検証。送信を安全な形で復旧 |
+| 2 | 認証ガード未読込5ページの修正、参照切れ修正、`logoutManage()` で `sessionStorage.clear()` |
+| 3 | Firestoreルールに親所有チェックとフィールド固定を追加 |
+| 4 | データを壊すバグの修正 |
+| 5 | ライブラリ固定・デッドコード削除・セキュリティヘッダ |
+
+## 7-3. `_auth.php` の設計
+
+外部ライブラリを使わず（openssl / curl / json のみ）、Firebase の IDトークン(JWT)を検証する。
+
+```php
+require_once __DIR__ . '/../_auth.php';
+$id = openair_safe_id($_REQUEST['id'] ?? '');   // 英数字のみ。パストラバーサル対策
+require_can_access('facilityData', $id);        // 所有者 or 管理者
+```
+
+| 関数 | 用途 |
+|---|---|
+| `require_login()` | ログイン済み(非匿名)を必須にする |
+| `require_admin()` | 管理者を必須にする |
+| `require_can_access($col, $id)` | その文書の所有者(または管理者)を必須にする |
+| `openair_safe_id($raw)` | 文書IDを英数字のみに制限 |
+| `openair_safe_email($raw)` | メール形式の検証＋改行の拒否 |
+
+**検証内容**: 署名(RS256・kid照合)、`iss`、`aud`、`exp`、`iat`、`sub` の存在、
+`alg` の固定（`alg:none` すり替えの防止）、匿名プロバイダの拒否。
+Googleの公開鍵は `/tmp` に1時間キャッシュし、取得失敗時は期限切れキャッシュで可用性を優先する。
+
+**★ 設計上の要点**: 「管理者か」「所有者か」の判定は、**利用者自身のIDトークンで Firestore REST を
+叩き、セキュリティルールに判定させている**。サーバー側に資格情報（サービスアカウント鍵）を
+置かずに済む代わりに、**Firestore ルールが正しいことが前提**になる。ルールを緩めるとPHPの防御も緩む。
+
+**クライアント側**: [assets/js/upload_auth.js](assets/js/upload_auth.js) が、action に `.php` を含む
+フォームの送信直前にIDトークンを取得し hidden フィールドへ入れる。
+`form.submit()` は submit イベントを発火しないため無限ループしない。
+
+## 7-4. 適用先と権限
+
+| ファイル | 要求する権限 |
+|---|---|
+| `master/mail.php` | 管理者 |
+| `facility/upload_image.php` / `upload_image_icon.php` | その施設の所有者 or 管理者 |
+| `facility/upload_image_space.php` | そのスペースの所有者 or 管理者 |
+| `case/upload_image.php` / `idea/upload_image.php` | 管理者 |
+
+## 7-5. 本番での攻撃再現テスト
+
+改修後、実際に本番へ攻撃を試みてすべて拒否されることを確認した。
+
+| 試行 | 結果 |
+|---|---|
+| mail.php へ無認証POST（オープンリレー） | 401 |
+| upload_image.php へ無認証POST | 401 |
+| パストラバーサル `id=../../foo` | 403（サーバーのWAFが先に遮断） |
+| ヘッダインジェクション（改行入り宛先） | 403（同上） |
+| `alg:none` による署名回避 | 401 |
+| 偽造トークン | 401 |
+| `_auth.php` への直接アクセス | 403 |
+
+正規の multipart アップロード（実PNG）では `$_POST['id']` と `$_FILES['image']` が
+正しく解析されることも、診断スクリプトで確認済み（実行後に削除）。
+
+## 7-6. Firestoreルールの追加防御
+
+| 対象 | 追加した条件 |
+|---|---|
+| `spaceData` create | 親 `facilityData` の uid 一致（`ownsParentFacility()`） |
+| `calendarData` create | 親 `spaceData` の uid 一致 ＋ ドキュメントIDと `s_id` の整合 |
+| `facilityData` update | `f_id` / `login_id` を変更不可 |
+| `spaceData` update | `f_id` / `s_id` を変更不可 |
+| `calendarData` update | `s_id` を変更不可 |
+
+`calendarData` のドキュメントIDは `{s_id}_{年}_{月}`。他施設のスペースIDで先回り作成されると、
+その施設は当該月を読むことも保存することもできなくなる（doc が存在するので update 扱いになり
+所有者チェックで弾かれる）ため、親の所有とIDの整合を両方要求している。
+
+`f_release`（公開フラグ）は**施設が自分で切り替える業務仕様**のため制限していない。
+
+## 7-7. データを壊すバグ
+
+**① カテゴリ選択の消失（最も危険だった）**
+
+`loadCategories()` を待たずに Firestore を読んでいたため、doc取得が先に終わると
+`categories` が空で選択値の代入が no-op になり、後から走る `loadCategories` が
+選択を全解除する。そのまま保存すると既存カテゴリが空配列で上書きされる。
+
+```js
+// 【修正前】並行して走るため順序が不定
+this.loadCategories();
+ensureAuth().then(() => db.collection("spaceData").doc(sid).get())
+
+// 【修正後】直列化。loadCategories は Promise を返すよう変更
+ensureAuth()
+  .then(() => this.loadCategories())
+  .then(() => db.collection("spaceData").doc(sid).get())
+```
+
+`categories.json` が本番未設置のため顕在化していなかったが、**設置した瞬間に破壊が始まる**状態だった。
+
+**② 施設削除の孤児化** — 配下の `spaceData` / `calendarData` を batch でまとめて削除するよう変更。
+Authアカウントとアップロード画像はクライアントから削除できないため、確認ダイアログで明示する。
+
+**③ `addess` typo** — 作成側を `address` に修正し、本番の既存6件から不要フィールドを削除。
+
+**④ パスワード変更の順序** — 取り消せない操作（パスワード更新）を最後に移動。
+以前は「変更に失敗しました」と表示されるのに実際は変わっている状態が起こり得た。
+入力欄3つを `type="password"` に変更し、画面名も実態に合わせた（ログインIDは変わらないため）。
+
+## 7-8. 保守性
+
+- **jQuery**: 既知のXSS脆弱性がある 1.8.2（23ページ）を 3.7.1 に統一。二重ロード5ページを解消。
+  `common.js` は24行で、jQuery 3.x で削除されたAPIを使っていないことを確認済み
+- **axios**: バージョン未固定のCDN参照をやめ、1.7.9 をローカル配置（CDN依存そのものを排除）
+- **デッドコード削除**: `app_manage_space_post_{000,100,err}.js`、`assets/js/vue.js`、
+  `jquery-1.8.2.min.js`。サーバー上からもFTPSで削除済み
+- **`.htaccess` 新設**: `X-Frame-Options: DENY` ほかを付与。`mod_headers` が無い環境で
+  500にならないよう `IfModule` で保護。内部ファイルへの直接アクセスも拒否
+- **`firebase.json`**: デプロイ対象から除外
 
 ---
 
