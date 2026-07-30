@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+
+	<!-- favicon -->
+	<link rel="icon" type="image/x-icon" href="assets/images/common/favicon.ico">
+	<link rel="apple-touch-icon" href="assets/images/common/apple-touch-icon.png" sizes="152x152">
+	<link rel="icon" href="assets/images/common/android-chrome.png" sizes="192x192" type="image/png">
+
+	<!-- SEO -->
+	<title>Mapから探す ｜TOYOSU OPEN AIR</title>
+	<meta name="description" content="">
+	<meta name="keywords" content="">
+	<link rel="canonical" href="">
+
+	<!-- font -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&display=swap" rel="stylesheet">
+
+	<!-- css -->
+	<link href="assets/css/common/base.css" rel="stylesheet" type="text/css">
+	<link href="assets/css/common/common.css" rel="stylesheet" type="text/css">
+	<link href="assets/css/map/map.css?v=260409" rel="stylesheet" type="text/css">
+
+	<link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
+	<script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+</head>
+<body id="pagetop">
+	<!-- header -->
+	<header>
+		<div class="header-inn">
+
+			<div class="header-logo"><a href="index.html">TOYOSU <span>OPEN AIR</span></a></div>
+
+			<button class="sp-menu-trigger sp">
+				<div class="sp-menu-btn">
+					<span></span>
+					<span></span>
+					<span></span>
+				</div>
+			</button>
+			<nav class="gnav-wrap">
+				<ul id="gnav">
+			 <!-- ▼ ドロップダウン対象 -->
+				<li class="has-dropdown">
+				  <a class="dropdown-toggle">
+					<span>スペースを</span><span>探す</span>
+				  </a>
+				  <ul class="dropdown">
+					<li><a href="map.html" class="btn_dropdown blue">マップから探す</a></li>
+					<li><a href="search.html" class="btn_dropdown green">目的から探す</a></li>
+				  </ul>
+				</li>
+					<li><a href="index.html#event"><span>活用</span><span>事例</span></a></li>
+					<li><a href="index.html#idea"><span>活用</span><span>アイデア</span></a></li>
+					<li><a href="contact" class="btn"><span>お問い合わせ</span></a></li>
+				</ul>
+			</nav>
+		</div>
+	</header>
+	<!-- header -->
+
+	<main class="main bg-blue">
+	<!-- ==================== パンくず ここから ==================== -->
+     <div class="breadcrumb-wrap">
+		<div class="breadcrumb-in">
+                <nav class="breadcrumbs">
+                    <ol itemscope itemtype="https://schema.org/BreadcrumbList">
+                        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                            <a itemprop="item" href="index.html"><span itemprop="name">トップ</span></a>
+                            <meta itemprop="position" content="1" />
+                        </li>
+                        <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+							<span itemprop="name">Mapから探す</span>
+                            <meta itemprop="position" content="2" />
+                        </li>
+                   </ol>
+                </nav>
+		 </div>
+     </div>
+    <!-- ==================== パンくず ここまで ==================== -->
+<div class="filter-wrap"><div id="category-filters"></div></div>
+		
+<div class="map-wrap">
+  <div id="sidebar">
+    <p class="side-ttl">表示中の施設</p>
+    <div id="feature-list"></div>
+  </div>
+  <div class="map-area">
+    <div id="info"></div>
+    <div id="map"></div>
+  </div>
+</div>
+		
+</main>
+
+<footer>
+	<div class="cont-inn">
+		<div class="link-wrap">
+				<a href="https://toyosu-smartcity.com" target="_blank">運営会社</a>
+				<a href="terms.html">利用規約</a>
+				<a href="privacy.html">プライバシーポリシー</a>
+				<a href="contact/">お問い合わせ</a>
+		</div>
+		<p class="copyright">© 2026 （一社）豊洲スマートシティ推進協議会. All Rights Reserved.</p>
+	</div>
+</footer>
+
+<!-- js -->
+<script src="assets/js/common/jquery-3.6.0.min.js"></script>
+<script src="assets/js/common/common.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="assets/js/common/firestore_openAir.js"></script>
+
+<script>
+mapboxgl.accessToken = 'REDACTED_MAPBOX_TOKEN' /* リポジトリに秘匿値を残さないため伏せ字化。実値は本番 map.html を参照 */;
+const initialCenter = [139.791221, 35.650561];
+//const initialZoom = 14;
+const mediaQuery = window.matchMedia('(max-width: 768px)');
+const initialZoom = mediaQuery.matches ? 13 : 13;
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/standard',
+  center: initialCenter,
+  zoom: initialZoom,
+  minZoom: 12,
+  maxZoom: 17
+});
+
+let markers = [];
+let facilityData = [];
+let categoryConfig = [];
+let selectedCategories = {}; 
+
+// --- カテゴリJSONロード ---
+async function loadCategories() {
+  try {
+    const res = await fetch('assets/json/categories.json');
+    const data = await res.json();
+    categoryConfig = data.facility || [];
+    categoryConfig.forEach(cat => selectedCategories[cat.field] = []);
+    renderCategoryCheckboxes();
+  } catch(e) { console.error(e); }
+}
+
+// --- カテゴリチェックボックス ---
+function renderCategoryCheckboxes() {
+  const container = document.getElementById('category-filters');
+  container.innerHTML = '';
+  categoryConfig.forEach(cat => {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'checkbox-group';
+    const title = document.createElement('p');
+    title.textContent = cat.name + '：';
+    groupDiv.appendChild(title);
+
+    // ★ 追加：labelをまとめるラッパー
+    const labelWrap = document.createElement('div');
+    labelWrap.className = 'label-wrap';
+
+    cat.items.forEach(item => {
+      const label = document.createElement('label');
+
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = item;
+      input.dataset.field = cat.field;
+
+      input.addEventListener('change', () => {
+        const f = input.dataset.field;
+        if (input.checked) {
+          if (!selectedCategories[f].includes(item)) {
+            selectedCategories[f].push(item);
+          }
+        } else {
+          selectedCategories[f] = selectedCategories[f].filter(v => v !== item);
+        }
+        updateMarkers();
+        updateSidebar();
+      });
+
+      const span = document.createElement('span');
+      span.textContent = ' ' + item;
+
+      label.appendChild(input);
+      label.appendChild(span);
+
+      // ★ ここを変更（groupDiv → labelWrap）
+      labelWrap.appendChild(label);
+    });
+
+    // ★ 最後にまとめて追加
+    groupDiv.appendChild(labelWrap);
+
+    container.appendChild(groupDiv);
+
+  });
+}
+
+// --- 施設データロード ---
+async function loadFacilityData() {
+  const db = firebase.firestore();
+  const snapshot = await db.collection("facilityData").where("f_release", "==", "on").get();
+  const features = [];
+
+  snapshot.forEach(doc => {
+    const d = doc.data();
+    if (d.lat && d.lng) {
+      const feature = {
+        type:"Feature",
+        geometry:{type:"Point",coordinates:[d.lng,d.lat]},
+        properties:{
+          f_id:doc.id,
+          name:d.f_name||"名称なし",
+          description:d.address||"",
+          message:d.f_introduction||"",
+          imageId:d.f_icon||"no-image.svg",
+          f_image:d.f_image||"",
+          url_web:d.url_web||"",
+          url_insta:d.url_insta||"",
+          url_fb:d.url_fb||"",
+          url_x:d.url_x||"",
+          iconSize:[40,40],
+          categories:{}
+        }
+      };
+      categoryConfig.forEach(cat=>{
+        feature.properties.categories[cat.field] = d[cat.field]||[];
+      });
+      features.push(feature);
+    }
+  });
+
+  facilityData = features;
+  updateMarkers();
+  updateSidebar();
+}
+
+// --- マーカー更新 ---
+function updateMarkers() {
+  markers.forEach(m=>m.remove());
+  markers=[];
+  const bounds = map.getBounds();
+
+  facilityData.forEach(f=>{
+    let show=true;
+    for(const field in selectedCategories){
+      const selected = selectedCategories[field];
+      if(selected.length===0) continue;
+      const vals = f.properties.categories[field]||[];
+      if(!selected.every(v=>vals.includes(v))){
+        show=false;
+        break;
+      }
+    }
+    if(!bounds.contains(f.geometry.coordinates)) show=false;
+
+    if(show){
+      const el=document.createElement('div');
+      const [w,h] = f.properties.iconSize;
+      el.className='marker';
+      el.style.width=`${w}px`;
+      el.style.height=`${h}px`;
+      el.style.backgroundImage=`url(assets/upload_img/facility/icon/${f.properties.imageId})`;
+      el.style.backgroundSize='100%';
+      el.addEventListener('click',()=>showInfo(f));
+      markers.push(new mapboxgl.Marker(el).setLngLat(f.geometry.coordinates).addTo(map));
+    }
+  });
+}
+
+// --- サイドバー更新 ---
+function updateSidebar() {
+
+  const list = document.getElementById('feature-list');
+  list.innerHTML='';
+
+  const bounds = map.getBounds();
+
+  const visible = facilityData.filter(f=>{
+    for(const field in selectedCategories){
+      const selected = selectedCategories[field];
+      if(selected.length === 0) continue;
+
+      const vals = f.properties.categories[field] || [];
+      if(!selected.every(v => vals.includes(v))) return false;
+    }
+
+    return bounds.contains(f.geometry.coordinates);
+  });
+
+
+  if(visible.length === 0){
+    const noRes = document.createElement('div');
+    noRes.textContent='表示範囲内に施設はありません。';
+    list.appendChild(noRes);
+    return;
+  }
+
+
+  visible.forEach(f => {
+
+    const item = document.createElement('div');
+    item.className = 'feature-item';
+
+
+    // ===== 画像エリア =====
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'feature-img';
+
+    const img = document.createElement('img');
+    img.src = "assets/upload_img/facility/icon/" + f.properties.imageId;
+    img.alt = f.properties.name || '';
+
+    imgWrap.appendChild(img);
+
+
+    // ===== テキストエリア =====
+    const txtWrap = document.createElement('div');
+    txtWrap.className = 'feature-txt';
+
+    const nameP = document.createElement('p');
+    nameP.className = 'item_name';
+    nameP.textContent = f.properties.name;
+
+    const addrP = document.createElement('p');
+    addrP.className = 'item_address';
+    addrP.textContent = f.properties.description;
+
+    txtWrap.appendChild(nameP);
+    txtWrap.appendChild(addrP);
+
+
+    // ===== リンクエリア =====
+    const linkWrap = document.createElement('div');
+    linkWrap.className = 'feature-link';
+
+    const link = document.createElement('a');
+    link.href = "facility.html";
+    link.className = "side-link";
+    link.textContent = "";
+
+    link.addEventListener('click', (e) => {
+      e.stopPropagation(); // map.flyTo を止める
+      sessionStorage.toyosu_manage_facility_id = f.properties.f_id;
+    });
+
+    linkWrap.appendChild(link);
+
+
+    // ===== まとめて追加 =====
+    item.appendChild(imgWrap);
+    item.appendChild(txtWrap);
+    item.appendChild(linkWrap);
+
+
+    // 施設クリックでマップ移動
+    item.addEventListener('click', () => {
+
+      map.flyTo({
+        center: f.geometry.coordinates,
+        zoom: 17
+      });
+
+      showInfo(f); // infoパネルも表示
+    });
+
+
+    list.appendChild(item);
+
+  });
+
+}
+	
+	
+// --- infoパネル ---
+function showInfo(f){
+  const info=document.getElementById('info');
+  const mainImage = f.properties.f_image ? `assets/upload_img/facility/main/${f.properties.f_image}` : 'assets/upload_img/facility/no-image.svg';
+  const snsLinks=[];
+  if(f.properties.url_web)snsLinks.push(`<a href="${f.properties.url_web}" target="_blank"><img src="assets/img/common/icon_web.png" alt="Web"></a>`);
+  if(f.properties.url_insta)snsLinks.push(`<a href="${f.properties.url_insta}" target="_blank"><img src="assets/img/common/icon_insta.png" alt="Instagram"></a>`);
+  if(f.properties.url_fb)snsLinks.push(`<a href="${f.properties.url_fb}" target="_blank"><img src="assets/img/common/icon_fb.png" alt="Facebook"></a>`);
+  if(f.properties.url_x)snsLinks.push(`<a href="${f.properties.url_x}" target="_blank"><img src="assets/img/common/icon_x.png" alt="X"></a>`);
+
+  info.innerHTML=`
+    <span style="position:absolute; top:5px; right:10px; font-size:20px; cursor:pointer;">&times;</span>
+    <p class="item_name">${f.properties.name}</p>
+    <p class="item_txt">${f.properties.message}</p>
+    <div class="item_img">
+      <img src="${mainImage}" style="width:100%; display:block; margin-bottom:5px;">
+      <div class="sns-links">${snsLinks.join('')}</div>
+      <div><a href="facility.html" id="view-facility-link" class="btn blue">この施設を見る</a></div>
+    </div>`;
+  info.style.display='block';
+  document.getElementById('view-facility-link').addEventListener('click',()=>{sessionStorage.toyosu_manage_facility_id=f.properties.f_id});
+}
+
+// --- 初期ロード ---
+firebase.auth().signInAnonymously().then(()=>{
+  loadCategories().then(()=>loadFacilityData());
+});
+
+map.on('moveend',()=>{updateMarkers(); updateSidebar();});
+document.getElementById('info').addEventListener('click',()=>{document.getElementById('info').style.display='none';});
+
+class ResetViewControl{
+  onAdd(map){
+    this.map = map;
+
+    this.container = document.createElement('div');
+    this.container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+
+    const btn = document.createElement('button');
+    btn.textContent = '豊洲全体を表示する';
+    btn.title = '初期表示位置に戻る';
+
+    btn.addEventListener('click', () => {
+      map.flyTo({
+        center: initialCenter,
+        zoom: initialZoom,
+        essential: true
+      });
+    });
+
+    this.container.appendChild(btn);
+    return this.container;
+  }
+
+  onRemove(){
+    this.container.parentNode.removeChild(this.container);
+    this.map = undefined;
+  }
+}
+
+// ▼Reset
+map.addControl(new ResetViewControl(),'top-right');
+
+// ▼＋−
+map.addControl(new mapboxgl.NavigationControl({showCompass:false}),'top-right');
+</script>
+</body>
+</html>
