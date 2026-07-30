@@ -5,14 +5,23 @@ rules_version = '2';
 //
 //  方針:
 //   - パスワードは Firestore に保存しない（Firebase Auth 管理）。
-//   - read / write とも「ログイン済み(非匿名)ユーザー」に限定する。
-//     ※ 2026-07-30 変更: 以前は read を公開(if true)にしていたが、認証なしで
-//        facilityData の login_id・担当者メールアドレスまで外部から取得できる
-//        状態だったため、全コレクションで認証必須に変更した。
-//        このデータを参照する公開サイトは存在しないことを確認済み。
-//   - facilityData の更新は本人(uid一致) または 管理者のみ。作成/削除は管理者のみ。
-//   - ideaData / caseData は管理者のみ編集。
-//   - 管理者判定は admins/{uid} ドキュメントの有無で行う（作成はコンソールで手動）。
+//   - 施設は「自分のデータだけ」read / write できる（所有者は uid で判定）。
+//   - 管理者(admins/{uid} を持つユーザー)は全データを read / write できる。
+//   - 匿名ユーザーは一切アクセスできない。
+//
+//  変更履歴:
+//   - 2026-07-24 初版。read は公開(if true)だった。
+//   - 2026-07-30 第1段階: 認証なしで facilityData の login_id・担当者メール
+//     アドレスが外部から取得できたため、全コレクションで認証必須に変更。
+//   - 2026-07-30 第2段階: ログイン済みの施設同士が相互に閲覧できる状態だった
+//     ため、所有者(uid一致)と管理者のみに限定。
+//
+//  ★重要（改修する人へ）:
+//   list（クエリ）は「ルールがフィルタしてくれる」わけではありません。
+//   resource.data.uid を参照するルールの下では、クエリ側も
+//   .where("uid","==",<自分のuid>) で絞らないと Firestore に拒否されます。
+//   施設側の全クエリは uid で絞るよう実装済みです。
+//   また spaceData / calendarData の新規作成時は uid の書き込みが必須です。
 // ============================================================
 
 service cloud.firestore {
@@ -30,37 +39,59 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // 施設データ（login_id・担当者メールを含むため read も認証必須）
+    // 既存ドキュメントの所有者か
+    function ownsExisting() {
+      return signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // 書き込もうとしている内容の所有者が自分か（uid の付け替えを防ぐ）
+    function ownsIncoming() {
+      return signedIn() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // 存在しないドキュメントの取得。resource が null のとき
+    // resource.data.uid を評価するとエラーで拒否されるため、明示的に許可する
+    // （存在しないものを「無い」と返すだけなので情報は漏れない）。
+    function missingDoc() {
+      return signedIn() && resource == null;
+    }
+
+    // 施設データ（login_id・担当者メールを含む。所有者と管理者のみ）
     match /facilityData/{fid} {
-      allow read:   if signedIn();
+      allow get:    if isAdmin() || missingDoc() || ownsExisting();
+      allow list:   if isAdmin() || ownsExisting();
       allow create: if isAdmin();
       allow delete: if isAdmin();
-      // 本人(uid一致) または 管理者のみ更新可
-      allow update: if isAdmin()
-                    || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin() || (ownsExisting() && ownsIncoming());
     }
 
-    // スペース（施設が編集）: read/write ともログイン済み
+    // スペース（施設が編集）
     match /spaceData/{doc} {
-      allow read:  if signedIn();
-      allow write: if signedIn();
+      allow get:    if isAdmin() || missingDoc() || ownsExisting();
+      allow list:   if isAdmin() || ownsExisting();
+      allow create: if isAdmin() || ownsIncoming();
+      allow update: if isAdmin() || (ownsExisting() && ownsIncoming());
+      allow delete: if isAdmin() || ownsExisting();
     }
 
-    // カレンダー/予約: read/write ともログイン済み
+    // カレンダー/予約（施設が編集）
     match /calendarData/{doc} {
-      allow read:  if signedIn();
-      allow write: if signedIn();
+      allow get:    if isAdmin() || missingDoc() || ownsExisting();
+      allow list:   if isAdmin() || ownsExisting();
+      allow create: if isAdmin() || ownsIncoming();
+      allow update: if isAdmin() || (ownsExisting() && ownsIncoming());
+      allow delete: if isAdmin() || ownsExisting();
     }
 
-    // アイデア（管理者コンテンツ）: read はログイン済み / write は管理者のみ
+    // アイデア（管理者専用コンテンツ。施設側の画面からは参照しない）
     match /ideaData/{doc} {
-      allow read:  if signedIn();
+      allow read:  if isAdmin();
       allow write: if isAdmin();
     }
 
-    // 事例（管理者コンテンツ）: read はログイン済み / write は管理者のみ
+    // 事例（管理者専用コンテンツ。施設側の画面からは参照しない）
     match /caseData/{doc} {
-      allow read:  if signedIn();
+      allow read:  if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -76,17 +107,3 @@ service cloud.firestore {
     }
   }
 }
-
-// ------------------------------------------------------------
-//  （任意のさらなる強化）spaceData / calendarData を「その施設の所有者のみ」に
-//  限定したい場合は、各ドキュメントに f_id を持たせた上で下記のように書く:
-//
-//    match /spaceData/{doc} {
-//      allow read: if true;
-//      allow write: if isAdmin()
-//        || (signedIn()
-//            && get(/databases/$(database)/documents/facilityData/$(request.resource.data.f_id)).data.uid == request.auth.uid);
-//    }
-//
-//  現状は「ログイン施設なら書込可」の緩めの設定（利用者が信頼できる少数のため）。
-// ------------------------------------------------------------

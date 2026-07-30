@@ -223,6 +223,8 @@ data() {
       let saveData = {
         s_id: sid,
         f_id: this.facilityId,
+        // uid は所有者判定に必須。これが無いとルールに拒否され保存できない。
+        uid: firebase.auth().currentUser.uid,
         f_name: this.facilityName,
 		f_address: this.facilityAdd,
         s_name: this.appSpaceData.s_name,

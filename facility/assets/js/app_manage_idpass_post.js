@@ -141,8 +141,9 @@ Vue.createApp({
     const self = this;
     const fid = sessionStorage.getItem("toyosu_manage_facility_id");
     withAuth(function (user, db) {
+      // uid で絞る（セキュリティルールが所有者限定のため）
       db.collection("facilityData")
-        .where("f_id", "==", fid)
+        .where("uid", "==", user.uid)
         .limit(1)
         .get()
         .then(function (querySnapshot) {

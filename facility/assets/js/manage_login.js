@@ -19,9 +19,12 @@ function loginChk_facility() {
 		firebase.auth().signInWithEmailAndPassword(email, pass_txt)
 			.then(function (cred) {
 				var db = firebase.firestore();
-				// 自分の施設データを login_id で取得
+				// 自分の施設データを uid で取得。
+				// ※ login_id ではなく uid で引く。セキュリティルールが
+				//   「自分(uid一致)のドキュメントしか読めない」ため、
+				//   クエリ側も uid で絞らないと Firestore に拒否される。
 				return db.collection("facilityData")
-					.where("login_id", "==", id_txt)
+					.where("uid", "==", cred.user.uid)
 					.limit(1)
 					.get()
 					.then(function (querySnapshot) {
