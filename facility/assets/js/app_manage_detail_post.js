@@ -150,8 +150,11 @@ Vue.createApp({
     // ==========================
     // JSON読み込み（facilityのみ）
     // ==========================
+    // ★ 呼び出し側が完了を待てるよう Promise を返す。
+    //   待たずに Firestore を読むと、後から走るこの処理が
+    //   selectedCategories を空配列で初期化し、読み込んだ選択値を消してしまう。
     loadCategories() {
-      axios.get('../../assets/json/categories.json')
+      return axios.get('../../assets/json/categories.json')
         .then(res => {
 
           this.categories = res.data.facility || [];
@@ -304,18 +307,20 @@ Vue.createApp({
 
   mounted() {
 
-    // ① JSON読み込み
-    this.loadCategories();
-
     const fid = sessionStorage.getItem("toyosu_manage_facility_id");
     this.fid = fid;
 
+    let authedUser = null;
     ensureAuth()
-      .then((user) => {
+      // ★ カテゴリJSONの読み込み完了を待ってから Firestore を読む。
+      //   逆順だと、後から走る loadCategories が選択値を空配列で上書きし、
+      //   そのまま保存すると既存カテゴリが消える。
+      .then((user) => { authedUser = user; return this.loadCategories(); })
+      .then(() => {
         const db = firebase.firestore();
         // uid で絞る（セキュリティルールが所有者限定のため）
         return db.collection("facilityData")
-                 .where("uid", "==", user.uid)
+                 .where("uid", "==", authedUser.uid)
                  .limit(1)
                  .get();
       })

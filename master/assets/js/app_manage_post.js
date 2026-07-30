@@ -140,7 +140,8 @@ for (var i = 0; i < idLength; i++) {
 						f_release: '',
 						f_introduction: '',
 						f_image: '',
-						addess: '',
+						address: '',   // ※旧コードは addess というtypoで、施設ログイン時に
+						               //   sessionStorage へ文字列 "undefined" が入っていた
 						access: '',
 						url_web: '',
 						url_insta: '',
