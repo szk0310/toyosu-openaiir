@@ -32,30 +32,21 @@ require_can_access('facilityData', $id);
 function uploadImage($tmpName, $dir, $maxWidth, $maxHeight){
 $id = openair_safe_id($_REQUEST['id'] ?? '');
 
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mime = $finfo->file($tmpName);
+    // ---- 展開前の検証（2026-07-31）--------------------------------
+    //  従来は形式が不正でも処理を続行しており、拡張子なしのファイル名が
+    //  Firestore に書かれたり、大きすぎる画像でメモリ不足の白画面になっていた。
+    //  getimagesize() は画像を展開しないので、ここで安全に判定できる。
+    list($width1, $height1, $mime, $ext) = openair_prepare_image($tmpName, 'image_post.html');
 
-    if($mime == 'image/jpeg' || $mime == 'image/pjpeg'){
-        $ext = '.jpg';
-        $image1 = imagecreatefromjpeg($tmpName);
-    } elseif($mime == 'image/png' || $mime == 'image/x-png'){
-        $ext = '.png';
-        $image1 = imagecreatefrompng($tmpName);
-    } elseif($mime == 'image/gif'){
-        $ext = '.gif';
-        $image1 = imagecreatefromgif($tmpName);
-    } else {
-        //return false;
-			echo <<<EOM
-			<script type="text/javascript">
-			  alert( "ファイル形式を確認してください。JPEG・PNG・GIFの画像のみアップロードできます。")
-			  location.href = 'image_post.html';
-			</script>
-			EOM;
-
+    switch ($ext) {
+        case '.jpg':  $image1 = @imagecreatefromjpeg($tmpName); break;
+        case '.png':  $image1 = @imagecreatefrompng($tmpName);  break;
+        case '.gif':  $image1 = @imagecreatefromgif($tmpName);  break;
+        case '.webp': $image1 = @imagecreatefromwebp($tmpName); break;
     }
-    
-    list($width1, $height1) = getimagesize($tmpName);
+    if (empty($image1)) {
+        openair_upload_error('画像を読み込めませんでした。ファイルが壊れている可能性があります。', 'image_post.html');
+    }
 
 	//if($width1 <= $maxWidth && $height1 <= $maxHeight){
         //$scale = 1.0;
@@ -101,7 +92,7 @@ $startPointY = $centerY - $centerImgY ;
 imagecopyresampled($image2, $image1, $startPointX , $startPointY, 0, 0,  $width2, $height2, $width1, $height1);
 
     if(!file_exists($dir)){
-        mkdir($dir, 0777, true);
+        mkdir($dir, 0755, true);
     }
 
     //$filename = sha1(microtime() . $_SERVER['REMOTE_ADDR'] . $tmpName) . $ext;
@@ -112,6 +103,28 @@ imagecopyresampled($image2, $image1, $startPointX , $startPointY, 0, 0,  $width2
 	$js_filename = json_encode($filename, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 	$js_imgid    = json_encode($imgid,    JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 	$js_id       = json_encode($id,       JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+	
+	
+    $saveTo = rtrim($dir, '/\\') . '/' . $filename;
+
+    // 書き込みが成功してから結果を表示する。
+    // 従来は保存前に「アップロードしました」と出していたため、
+    // 失敗しても成功したように見えていた。
+    $written = false;
+    if ($ext == '.jpg') {
+        $written = imagejpeg($image2, $saveTo, 80);
+    } else if ($ext == '.png') {
+        $written = imagepng($image2, $saveTo);
+    } else if ($ext == '.gif') {
+        $written = imagegif($image2, $saveTo);
+    } else if ($ext == '.webp') {
+        $written = imagewebp($image2, $saveTo);
+    }
+    if (!$written || !file_exists($saveTo)) {
+        imagedestroy($image1); imagedestroy($image2);
+        openair_upload_error('画像の保存に失敗しました。時間をおいて再度お試しください。', 'image_post.html');
+    }
 
 	echo <<<EOM
 			<script type="text/javascript">
@@ -136,18 +149,6 @@ imagecopyresampled($image2, $image1, $startPointX , $startPointY, 0, 0,  $width2
 				});
 			</script>
 			EOM;
-	
-	
-    $saveTo = rtrim($dir, '/\\') . '/' . $filename;
-
-    if($ext == '.jpg'){
-        $quality = 80;
-        imagejpeg($image2, $saveTo, $quality);
-    } else if($ext == '.png'){
-        imagepng($image2, $saveTo);
-    } else if($ext == '.gif'){
-        imagegif($image2, $saveTo);
-    }
 
     imagedestroy($image1);
     imagedestroy($image2);
@@ -166,6 +167,8 @@ if($_SERVER["REQUEST_METHOD"] === 'POST'
     $maxHeight = 880;   // 最大高さ
 
     // 一時ファイルの場所
+    // アップロード自体が成功しているかを先に確認する（従来は未確認）
+    openair_check_upload('image', 'image_post.html');
     $tmpName = $_FILES['image']['tmp_name'];
 
     // 保存先のディレクトリ

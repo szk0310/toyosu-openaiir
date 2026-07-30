@@ -75,9 +75,35 @@ $auto_reply_text .= "ログインページ：https://toyosu-smartcity.com/open_a
 //     - 呼び出し元が Firebase 認証済みの管理者であること（require_admin）
 //     - $to_email が正当なメールアドレスで、改行を含まないこと
 // ------------------------------------------------------------
-mb_send_mail($to_email, $auto_reply_subject, $auto_reply_text, $header, $additional_params);
+$sent = mb_send_mail($to_email, $auto_reply_subject, $auto_reply_text, $header, $additional_params);
 
-header('Location: index.html');
+// ★ 戻り値を必ず確認する。
+//   パスワードは Firestore にも保存されないため、メールが届かなければ
+//   誰も復元できない。失敗を黙って握りつぶしてはいけない。
+if ($sent) {
+	// 成功時は従来どおり一覧へ戻る
+	header('Location: index.html');
+	exit;
+}
+
+// 失敗時はリダイレクトせず、発行された ID/PASS を画面に出して手動連絡へ誘導する
+header('Content-Type: text/html; charset=UTF-8');
+$e = function ($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); };
+echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
+echo '<title>メール送信に失敗しました</title>';
+echo '<style>body{font-family:sans-serif;max-width:640px;margin:40px auto;padding:0 16px;line-height:1.8}';
+echo '.box{border:2px solid #c00;background:#fff5f5;padding:16px;border-radius:8px}';
+echo '.cred{background:#f4f4f4;padding:12px;border-radius:6px;font-family:monospace;font-size:16px}';
+echo 'a{display:inline-block;margin-top:24px}</style></head><body>';
+echo '<h1>施設の登録は完了しました</h1>';
+echo '<div class="box"><strong>⚠️ ID/PASS のメール送信に失敗しました。</strong><br>';
+echo '下記の内容を、施設のご担当者へ<strong>手動でご連絡ください。</strong><br>';
+echo 'この画面を閉じると再表示できません。必ず控えを取ってください。</div>';
+echo '<p>送信先: <code>' . $e($to_email) . '</code></p>';
+echo '<div class="cred">ID：' . $e($post_lid) . '<br>Pass：' . $e($post_pass) . '</div>';
+echo '<p>ログインページ：<br>https://toyosu-smartcity.com/open_air/manage/facility/login.html</p>';
+echo '<a href="index.html">← 施設一覧へ戻る</a>';
+echo '</body></html>';
 exit;
 
 ?>

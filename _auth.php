@@ -267,6 +267,86 @@ function openair_safe_email($raw) {
     return $mail;
 }
 
+// ------------------------------------------------------------
+//  アップロード時のエラー表示（画面に理由を出して元のページへ戻す）
+//  ※ 従来は不正な入力でも処理を続行しており、白画面や
+//    壊れたデータの書き込みにつながっていた。
+// ------------------------------------------------------------
+function openair_upload_error($message, $backPage) {
+    header('Content-Type: text/html; charset=UTF-8');
+    $m = json_encode($message, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    $b = json_encode($backPage, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    echo "<!doctype html><meta charset=\"utf-8\"><script>alert({$m});location.href={$b};</script>";
+    exit;
+}
+
+// ------------------------------------------------------------
+//  アップロード画像の検証。展開する前に寸法と形式を確認し、
+//  必要メモリを見積もって上限を引き上げる。
+//  返り値: [幅, 高さ, MIME, 拡張子]
+// ------------------------------------------------------------
+const OPENAIR_MAX_PIXELS   = 60000000;   // 6000万画素（iPhone Pro の48MP=4877万を余裕でカバー）
+const OPENAIR_MAX_SIDE     = 20000;      // 1辺の上限（極端な縦横比への保険）
+const OPENAIR_MAX_MEMORY_MB = 512;       // GD に許すメモリの上限
+
+function openair_prepare_image($tmpName, $backPage) {
+    $info = @getimagesize($tmpName);
+    if ($info === false) {
+        openair_upload_error('画像ファイルとして読み取れませんでした。ファイルを確認してください。', $backPage);
+    }
+    list($w, $h) = $info;
+    $mime = $info['mime'] ?? '';
+
+    if ($w > OPENAIR_MAX_SIDE || $h > OPENAIR_MAX_SIDE || ($w * $h) > OPENAIR_MAX_PIXELS) {
+        openair_upload_error("画像が大きすぎます（{$w}×{$h}px）。6000万画素以内の画像をご利用ください。", $backPage);
+    }
+
+    // GD は画像を1画素4バイトで展開する。縮小後の画像も同時に持つため係数1.6。
+    $needMB = (int)ceil($w * $h * 4 * 1.6 / 1048576) + 32;
+    if ($needMB > OPENAIR_MAX_MEMORY_MB) {
+        openair_upload_error("画像が大きすぎて処理できません（{$w}×{$h}px）。縮小してからアップロードしてください。", $backPage);
+    }
+    $current = (int)ini_get('memory_limit');
+    if ($needMB > $current) { @ini_set('memory_limit', $needMB . 'M'); }
+
+    switch ($mime) {
+        case 'image/jpeg':
+        case 'image/pjpeg': return [$w, $h, $mime, '.jpg'];
+        case 'image/png':
+        case 'image/x-png': return [$w, $h, $mime, '.png'];
+        case 'image/gif':   return [$w, $h, $mime, '.gif'];
+        case 'image/webp':
+            if (function_exists('imagecreatefromwebp')) { return [$w, $h, $mime, '.webp']; }
+            openair_upload_error('WebP形式はこのサーバーでは扱えません。JPEG または PNG に変換してください。', $backPage);
+        case 'image/heic':
+        case 'image/heif':
+            openair_upload_error("HEIC形式は扱えません。iPhone をお使いの場合は「設定 → カメラ → フォーマット」を「互換性優先」に変更するか、JPEG に変換してからアップロードしてください。", $backPage);
+        default:
+            openair_upload_error('対応していないファイル形式です。JPEG・PNG・GIF の画像をアップロードしてください。', $backPage);
+    }
+}
+
+// ------------------------------------------------------------
+//  アップロードそのものが成功しているかを確認する
+// ------------------------------------------------------------
+function openair_check_upload($field, $backPage) {
+    if (!isset($_FILES[$field])) {
+        openair_upload_error('ファイルが送信されませんでした。', $backPage);
+    }
+    $err = $_FILES[$field]['error'];
+    if ($err === UPLOAD_ERR_OK) { return; }
+    $map = [
+        UPLOAD_ERR_INI_SIZE   => 'ファイルサイズが大きすぎます。',
+        UPLOAD_ERR_FORM_SIZE  => 'ファイルサイズが大きすぎます。',
+        UPLOAD_ERR_PARTIAL    => 'アップロードが中断されました。もう一度お試しください。',
+        UPLOAD_ERR_NO_FILE    => 'ファイルが選択されていません。',
+        UPLOAD_ERR_NO_TMP_DIR => 'サーバー側の一時領域が利用できません。管理者にご連絡ください。',
+        UPLOAD_ERR_CANT_WRITE => 'サーバーへの書き込みに失敗しました。管理者にご連絡ください。',
+        UPLOAD_ERR_EXTENSION  => 'サーバー設定によりアップロードが中止されました。',
+    ];
+    openair_upload_error($map[$err] ?? 'アップロードに失敗しました。', $backPage);
+}
+
 // 直接アクセスされても何も起きないようにする
 if (realpath(__FILE__) === realpath($_SERVER['SCRIPT_FILENAME'] ?? '')) {
     openair_deny(404, 'Not Found');
