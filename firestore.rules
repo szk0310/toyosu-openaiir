@@ -61,6 +61,11 @@ service cloud.firestore {
       return request.resource.data.get(field, null) == resource.data.get(field, null);
     }
 
+    // ID が数字のみか（Date.now() 由来のため。正規表現メタ文字の混入を防ぐ）
+    function numericId(v) {
+      return v is string && v.matches('^[0-9]+$');
+    }
+
     // 作成しようとしている spaceData の親施設を自分が所有しているか
     function ownsParentFacility() {
       return signedIn()
@@ -77,7 +82,8 @@ service cloud.firestore {
     match /facilityData/{fid} {
       allow get:    if isAdmin() || missingDoc() || ownsExisting();
       allow list:   if isAdmin() || ownsExisting();
-      allow create: if isAdmin();
+      allow create: if isAdmin()
+                    && fid == request.resource.data.f_id && numericId(fid);
       allow delete: if isAdmin();
       // 施設本人の更新では uid / f_id / login_id を変更させない。
       // これらが変わると spaceData との紐付けや管理者画面の表示が壊れる。
@@ -91,8 +97,16 @@ service cloud.firestore {
     match /spaceData/{doc} {
       allow get:    if isAdmin() || missingDoc() || ownsExisting();
       allow list:   if isAdmin() || ownsExisting();
-      // 自分の uid を書くだけでなく、親施設も自分のものであることを要求する
-      allow create: if isAdmin() || (ownsIncoming() && ownsParentFacility());
+      // 自分の uid を書くだけでなく、親施設も自分のものであることを要求する。
+      // ★ ドキュメントIDと s_id を一致させ、さらに数字のみに限定する。
+      //   これを怠ると s_id に正規表現のメタ文字（例: ".*"）を仕込んだ
+      //   スペースを作れてしまい、calendarData 側の doc.matches() による
+      //   検証が任意のドキュメントIDに一致して機能しなくなる。
+      allow create: if isAdmin()
+                    || (ownsIncoming() && ownsParentFacility()
+                        && doc == request.resource.data.s_id
+                        && numericId(doc)
+                        && numericId(request.resource.data.f_id));
       allow update: if isAdmin()
                     || (ownsExisting() && ownsIncoming()
                         && unchanged('f_id') && unchanged('s_id'));
@@ -106,9 +120,11 @@ service cloud.firestore {
     match /calendarData/{doc} {
       allow get:    if isAdmin() || missingDoc() || ownsExisting();
       allow list:   if isAdmin() || ownsExisting();
+      // s_id を数字のみに限定したうえで {s_id}_{年}_{月} の形を厳密に要求する
       allow create: if isAdmin()
                     || (ownsIncoming() && ownsParentSpace()
-                        && doc.matches(request.resource.data.s_id + '_.*'));
+                        && numericId(request.resource.data.s_id)
+                        && doc.matches('^' + request.resource.data.s_id + '_[0-9]{4}_[0-9]{1,2}$'));
       allow update: if isAdmin()
                     || (ownsExisting() && ownsIncoming() && unchanged('s_id'));
       allow delete: if isAdmin() || ownsExisting();

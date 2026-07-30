@@ -21,36 +21,56 @@
     form.setAttribute("data-token-attached", "1");
 
     form.addEventListener("submit", function (ev) {
-      var field = form.querySelector('input[name="idToken"]');
-      // 既にトークンが入っていれば、そのまま通常送信させる
-      if (field && field.value) { return; }
-
+      // ★ 常に横取りする。トークンは毎回取り直す（戻る操作で
+      //   期限切れトークンが再送されるのを防ぐため、値の使い回しはしない）。
       ev.preventDefault();
 
-      var user = firebase.auth().currentUser;
-      if (!user) {
-        alert("セッションが切れました。お手数ですが再度ログインしてください。");
-        return;
+      if (form.getAttribute("data-submitting")) { return; }   // 連打による二重送信の防止
+      form.setAttribute("data-submitting", "1");
+
+      var buttons = form.querySelectorAll('input[type="submit"], button');
+      Array.prototype.forEach.call(buttons, function (b) { b.disabled = true; });
+
+      function fail(msg) {
+        form.removeAttribute("data-submitting");
+        Array.prototype.forEach.call(buttons, function (b) { b.disabled = false; });
+        alert(msg);
       }
 
-      // 送信直前に取得する。ページを長時間開いていても期限切れにならないよう
-      // 強制リフレッシュ(true)する。
-      user.getIdToken(true)
-        .then(function (token) {
-          if (!field) {
-            field = document.createElement("input");
-            field.type = "hidden";
-            field.name = "idToken";
-            form.appendChild(field);
-          }
-          field.value = token;
-          // form.submit() は submit イベントを発火しないため無限ループしない
-          form.submit();
-        })
-        .catch(function (err) {
-          console.error("IDトークン取得エラー:", err);
-          alert("認証情報の取得に失敗しました。再度ログインしてください。");
-        });
+      // ★ currentUser を同期で読んではいけない。
+      //   ページを開いた直後は Firebase の認証状態がまだ復元されておらず
+      //   null になるため、すぐ送信すると誤って「セッションが切れました」に
+      //   なってしまう。onAuthStateChanged で復元を待ってから判断する。
+      var settled = false;
+      var unsub = firebase.auth().onAuthStateChanged(function (user) {
+        if (settled) { return; }
+        settled = true;
+        unsub();
+
+        if (!user || user.isAnonymous) {
+          fail("セッションが切れました。お手数ですが再度ログインしてください。");
+          return;
+        }
+
+        // ページを長時間開いていても期限切れにならないよう強制リフレッシュする
+        user.getIdToken(true)
+          .then(function (token) {
+            var field = form.querySelector('input[name="idToken"]');
+            if (!field) {
+              field = document.createElement("input");
+              field.type = "hidden";
+              field.name = "idToken";
+              form.appendChild(field);
+            }
+            field.value = token;
+            // form.submit() は submit イベントを発火しないため無限ループしない
+            form.submit();
+          })
+          .catch(function (err) {
+            console.error("IDトークン取得エラー:", err);
+            fail("認証情報の取得に失敗しました。通信環境を確認のうえ、再度お試しください。");
+          });
+      });
     });
   }
 

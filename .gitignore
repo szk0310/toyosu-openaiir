@@ -1,2 +1,5 @@
 .DS_Store
 *.zip
+
+# Firebase 公開鍵のローカルキャッシュ（サーバー上で自動生成）
+.cache/
