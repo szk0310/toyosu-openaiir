@@ -104,7 +104,9 @@ Vue.createApp({
         .then(function () {
           var db = firebase.firestore();
           var ts = firebase.firestore.FieldValue.serverTimestamp();
-          return db.collection("facilityData").doc(self.fid).set({
+          // 連絡先メールの保存先は facilityPrivate
+          return db.collection("facilityPrivate").doc(self.fid).set({
+            f_id: self.fid,
             mail: form1.email.value,
             updated_at: ts
           }, { merge: true });
@@ -154,17 +156,25 @@ Vue.createApp({
         .get()
         .then(function (querySnapshot) {
           if (querySnapshot.empty) {
-            // f_id が無い → 未ログイン扱い
+            // 自分の施設データが無い → 未ログイン扱い
             location.href = "login.html";
-            return;
+            return null;
           }
-          const data = querySnapshot.docs[0].data();
-          Object.assign(self.appFacilityData, data);
-          self.fid = fid;
-          console.log("facilityData Get OK!!", data);
+          const doc0 = querySnapshot.docs[0];
+          Object.assign(self.appFacilityData, doc0.data());
+          // 文書ID = f_id。sessionStorage より確実なのでこちらを使う。
+          self.fid = doc0.id;
+          // ★ 連絡先メールは facilityPrivate 側にある（公開サイトに
+          //   渡さないため facilityData から分離した）
+          return db.collection("facilityPrivate").doc(doc0.id).get();
+        })
+        .then(function (priv) {
+          if (priv && priv.exists) {
+            self.appFacilityData.mail = priv.data().mail || '';
+          }
         })
         .catch(function (error) {
-          console.log("querySnapshot ERROR!!", error);
+          console.log("facilityData Get ERROR!!", error);
         });
     });
   },

@@ -127,13 +127,22 @@ for (var i = 0; i < idLength; i++) {
 					// 二次アプリはユーザー作成専用。すぐサインアウトして管理者セッションに影響させない。
 					secondaryApp.auth().signOut();
 
-					// 施設データを保存（login_pass は保存しない / uid を保存してルールの所有者判定に使う）
-					return db.collection("facilityData").doc(fid).set({
+					// 施設データを保存。
+					// ★ login_id と mail は facilityPrivate 側に保存する。
+					//   facilityData は公開サイトの施設詳細ページが doc().get() で
+					//   読むため、秘匿情報を同居させるとブラウザに渡ってしまう。
+					return db.collection("facilityPrivate").doc(fid).set({
 						f_id: fid,
 						uid: uid,
 						login_id: l_id,
-						f_name: facilityName,
 						mail: contactMail,
+						updated_at: ts
+					})
+					.then(function () {
+					return db.collection("facilityData").doc(fid).set({
+						f_id: fid,
+						uid: uid,
+						f_name: facilityName,
 						f_category1: [],
 						s_min: null,
 						s_max: null,
@@ -152,6 +161,7 @@ for (var i = 0; i < idLength; i++) {
 						f_icon: '',
 						f_map: '',
 						updated_at: ts
+					});
 					});
 				})
 				.then(function () {
@@ -202,11 +212,18 @@ for (var i = 0; i < idLength; i++) {
 				const ts = firebase.firestore.FieldValue.serverTimestamp();
 				var id = id
 
-				db.collection("facilityData").doc(id).set({
-					f_name: form1.name.value,
-					mail: form1.email.value,
-					updated_at:ts
-						}, {merge: true})
+				// 施設名は facilityData、連絡先メールは facilityPrivate に分かれている
+				Promise.all([
+					db.collection("facilityData").doc(id).set({
+						f_name: form1.name.value,
+						updated_at: ts
+					}, { merge: true }),
+					db.collection("facilityPrivate").doc(id).set({
+						f_id: id,
+						mail: form1.email.value,
+						updated_at: ts
+					}, { merge: true })
+				])
 						.then(() => {
 
 						console.log("Document successfully written!");
@@ -241,10 +258,14 @@ computed: {
 		withAdmin(function (user, db) {
 			self.facilityId = sessionStorage.toyosu_manage_facility_id;
 			if (self.facilityId !== '' && self.facilityId !== null && self.facilityId !== undefined) {
-				db.collection("facilityData").doc(self.facilityId).get()
-					.then(function (doc) {
-						self.facilityName = doc.data().f_name;
-						self.facilityMail = doc.data().mail;
+				Promise.all([
+					db.collection("facilityData").doc(self.facilityId).get(),
+					db.collection("facilityPrivate").doc(self.facilityId).get()
+				])
+					.then(function (docs) {
+						self.facilityName = docs[0].exists ? docs[0].data().f_name : '';
+						// 連絡先メールは facilityPrivate 側にある
+						self.facilityMail = docs[1].exists ? docs[1].data().mail : '';
 					})
 					.catch(function (error) {
 						console.log("facilityData Get ERROR!!", error);
