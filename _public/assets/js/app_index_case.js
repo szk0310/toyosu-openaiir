@@ -1,29 +1,24 @@
 Vue.createApp({
 	template: `
-<template v-for="(item, index) in appIdeaArray.slice(0, 3)" :key="index">
-<div class="cont-item">
-						<p class="item-img">
-<img v-if="item.image !== ''"
-:src="'assets/upload_img/idea/'+ item.image"
-:alt="item.name">
-
-<img v-else
-src="assets/upload_img/idea/no-image.svg"
-alt="no-image">
+<template v-for="(item, index) in appCaseArray.slice(0, 2)" :key="index">
+<div class="cont-item flex">
+						<div class="cont-item-inn img">
+							<p class="item-img round">
+<img v-if="item.image !== ''" :src="'assets/upload_img/case/'+ item.image" :alt="item.name">
+<img class="" v-else :src="'assets/upload_img/case/no-image.svg'" alt="no-image">
 </p>
-
-</p>
-						<div class="cont-item-inn">
+						</div>
+						<div class="cont-item-inn txt">
 							<h3 class="item-ttl">{{item.name}}</h3>
+							<p class="item-lead">{{item.subttl}}</p>
 							<p class="item-txt">{{item.introduction}}</p>
 						</div>
 					</div>
-</div>
 </template>
 			`,
 	data: function () {
 		return {
-			appIdeaArray:[],
+			appCaseArray:[],
 		}
 		},
 	 methods: {
@@ -45,34 +40,34 @@ alt="no-image">
 
 	mounted(){	
 			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
+			Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/
 			  .then(() => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();
-				  console.log("ideaData Get Start!!");
+				  console.log("caseData Get Start!!");
 				  var array = [];
-				  db.collection("ideaData").get()
+				  db.collection("caseData").get()
 					.then(querySnapshot => {
 					  console.log("querySnapshot forEach Start!!");
 					  querySnapshot.forEach(doc => {
 					  array.push(doc.data()); 
 					  });
 					  console.log("querySnapshot forEach End  !!");
-					  //this.appIdeaArray = array;
-					  //this.appIdeaArray  = this.appIdeaArray.sort((a, b) => {return a.order - b.order;});
-					  // シャッフル
+					  //this.appCaseArray = array;
+					  //this.appCaseArray  = this.appCaseArray.sort((a, b) => {return a.order - b.order;});
+						// シャッフル
 						for (let i = array.length - 1; i > 0; i--) {
 						  const j = Math.floor(Math.random() * (i + 1));
 						  [array[i], array[j]] = [array[j], array[i]];
 						}
 
-						this.appIdeaArray = array;
-					  sessionStorage.setItem('toyosu_appIdeaArray', JSON.stringify(array));
+						this.appCaseArray = array;
+					  sessionStorage.setItem('toyosu_appCaseArray', JSON.stringify(array));
 					})
 					.catch(function(error) {
 					  console.log("querySnapshot ERROR  !!");
 				   });
-				  console.log("ideaData Get End  !!");
+				  console.log("caseData Get End  !!");
 				}
 				)
 			  .catch(error => console.log(error));
@@ -83,4 +78,4 @@ alt="no-image">
 	created () { 
 
 		},	
-}).mount('#app_index_idea')
+}).mount('#app_index_case')

@@ -1,0 +1,160 @@
+@charset "UTF-8";
+/* ------------------------------------------------
+                   お問い合わせ
+--------------------------------------------------- */
+
+.contact-wrap{
+	background: var(--col_white);
+	box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+	width:90%;
+	max-width: 800px;
+	margin: 0 auto;
+	padding: 40px 60px;
+	border-radius:20px
+}
+.form-wrap{
+	margin-top: 60px;
+	font-size:1.5rem
+}
+.form-wrap .check-btn-wrap a{
+	color:var(--col_blue);
+}
+.form-wrap .ttl{
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	gap:0.8em
+}
+.form-wrap .req{
+	font-size:0.6em;
+	padding: 0 0.5em;
+	border-radius: 0.4em;
+	background: var(--col_red);
+	color:var(--col_white);
+}
+.form-wrap .input{
+	margin-bottom: 3em
+}
+.conf .form-wrap .input{
+	border-bottom: 1px solid var(--col_l_gray);
+}
+.form-wrap .check-btn-wrap{
+	text-align: center
+}
+.form-wrap .submit{
+	margin-top: 40px;
+	text-align: center
+}
+
+
+
+@media (max-width: 768px) {
+	.contact-wrap{
+		width:96%;
+		max-width: inherit;
+		padding: 4vw;
+		border-radius:2vw
+	}
+	.form-wrap{
+		margin-top: 6vw;
+		font-size:3.2vw
+	}
+	.form-wrap .submit{
+		margin-top: 4vw;
+		text-align: center
+	}
+}
+
+
+input[type='submit']{
+	color:var(--col_white);
+	border-radius: 3em
+}
+input[type='text'],
+input[type='email']{
+	padding: 0.4em 1em;
+	border-radius: 0
+}
+textarea{
+	padding: 0.4em 1em;
+	border-radius: 0.2em;
+	box-sizing: border-box;
+}
+
+
+/* ---チェックボックス--- */
+.check-btn-wrap {
+  margin-top: 1em;
+}
+.check-agreement {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.check-agreement input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 1em;
+  height: 1em;
+  margin: 0;
+}
+.checkmark {
+  width: 1em;
+  height: 1em;
+  border: 1px solid var(--col_gray);
+  border-radius: 0.1em;
+  margin-right: 0.5em;
+  position: relative;
+  box-sizing: border-box;
+}
+.check-agreement input:checked + .checkmark {
+  background-color: var(--col_l_gray);
+}
+.check-agreement input:checked + .checkmark::after {
+  content: "";
+  position: absolute;
+  left: 0.25em;
+  top: 0;
+  width: 0.3em;
+  height: 0.6em;
+  border: solid var(--col_black);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ---セレクト--- */
+.select-wrap {
+  position: relative;
+  width: 100%;
+}
+.select-wrap select {
+  width: 100%;
+  padding: 0.4em 2.5em 0.4em 1em;
+  border: 1px solid var(--col_l_gray);
+  border-radius: 0.2em;
+  background: var(--col_l_gray);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 1em;
+  width: 0.5em;
+  height:0.5em;
+  border-right: 2px solid var(--col_black);
+  border-bottom: 2px solid var(--col_black);
+  transform: translateY(-50%) rotate(45deg);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	input[type='submit']:hover{
+	color:var(--col_blue);
+}
+}

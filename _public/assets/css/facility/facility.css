@@ -1,0 +1,153 @@
+@charset "UTF-8";
+#app_facility{background:var(--col_white); }
+
+.main_img img{
+	width: 100%;          /* 横サイズ */
+  height: 400px;         /* 縦サイズ */
+  object-fit: cover;     /* 縦横比を維持しつつ枠いっぱいに表示 */
+  object-position: center; /* 中央を表示 */
+  border-radius: 10px;    /* 角丸 */
+  display: block;
+	margin-top: 20px
+}
+.cat_wrap{
+	padding: 20px 0
+}
+.cat_wrap p{
+	display: inline-block;
+	margin-right: 1em;
+	padding: 0.5em 1em;
+	line-height: 1;
+	background: var(--col_bg_blue);
+	border-radius: 3em;
+	font-size:1.5rem
+}
+
+.f_name_txt{
+	font-size:4.0rem;
+	font-weight: 700;
+	color:var(--col_blue);
+}
+.f_intro_txt{
+	white-space: pre-wrap; 
+}
+.f_add_tbl{
+	width:100%;
+	border-collapse: collapse; /* セルの隙間をなくす */
+  border-spacing: 0;         /* セル間隔をリセット */
+  padding: 0;                /* 内側パディングリセット */
+	border:1px solid var(--col_l_gray);
+	text-align: left;
+	margin: 40px 0
+}
+.f_add_tbl tr:not(:last-child){
+	border-bottom:1px solid var(--col_l_gray);
+}
+.f_add_tbl th,
+.f_add_tbl td{
+	padding: 0.5em 1em
+}
+.f_add_tbl th{
+	background: var(--col_bg_blue);
+	font-weight: 700
+}
+
+/*--施設内の利用可能スペース--*/
+.space_area{
+	padding: 80px 0
+}
+.space_wrap{display: flex}
+.space-list{width:60%}
+.space-map{width:35%}
+
+.space-list-ttl{
+		font-size:2.8rem;
+	font-weight: 700;
+	color:var(--col_green);
+
+}
+.space-item{
+	margin-top: 10px;
+	background: var(--col_white);
+	padding:20px;
+	border-radius: 10px;
+	box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+	display: flex;
+	justify-content: space-between;
+	cursor: pointer
+}
+.space-item .img{
+	width:25%
+}
+.space-item .img img{
+	border-radius: 5px
+}
+.space-item .txt{
+	width:73%
+}
+.space-item .txt .s_name{
+	font-size:2.0rem;
+	font-weight: 700;
+
+}
+.space-item .txt .s_price{
+	font-size:1.6rem;
+		font-weight: 700;
+
+	color:var(--col_blue);
+	margin-bottom: 0.6em
+}
+.space-item .txt .s_txt{
+	font-size:1.4rem;
+	color:var(--col_gray);
+}
+@media (max-width: 768px) {
+.main_img img{
+	width: 100%;          /* 横サイズ */
+  height: 30vh;         /* 縦サイズ */
+  border-radius: 2vw;    /* 角丸 */
+ margin-top: 4vw
+}
+.cat_wrap{
+	padding: 2vw 0
+}
+.cat_wrap p{
+	font-size:3vw
+}
+
+.f_name_txt{
+	font-size:4.8vw;
+}
+.f_intro_txt{
+	white-space: pre-wrap; 
+}
+.f_add_tbl{
+	margin: 4vw 0
+}
+	
+/*--施設内の利用可能スペース--*/
+.space_area{
+	padding: 6vw 0
+}
+.space_wrap{display: flex;flex-wrap: wrap}
+.space-list{width:100%}
+.space-map{width:100%}
+
+.space-list-ttl{
+		font-size:4.2vw;
+}
+.space-item{
+	margin-top: 2vw;
+	padding:4vw;
+	cursor: auto;
+}
+.space-item .img img{
+	border-radius: 1vw
+}
+.space-item .txt .s_name{
+	font-size:3.6vw;
+}
+.space-item .txt .s_txt{
+	font-size:3vw;
+}
+}

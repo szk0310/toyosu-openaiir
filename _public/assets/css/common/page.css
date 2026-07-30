@@ -1,0 +1,84 @@
+@charset "UTF-8";
+/* ------------------------------------------------
+                    共通css
+--------------------------------------------------- */
+/*---section---*/
+.section{
+	padding: 80px 0
+}
+
+/*---title---*/
+.ttl-wrap{
+	padding: 60px 0
+}
+.sec-ttl{
+	font-size:3.8rem;
+	font-weight: 600;
+	color:var(--col_blue);
+	line-height: 1.4;
+	text-align: center
+}
+.sec-seb-txt{
+	margin: 40px 0 0;
+	text-align: center;
+	font-size:1.8rem;
+	color:var(--col_gray);
+}
+
+
+@media (max-width: 768px) {
+ /*---section---*/
+	.section{
+		padding: 8vw 0
+	}
+
+	/*---title---*/	
+	.ttl-wrap{
+		padding: 6vw 0
+	}
+
+	.sec-ttl{
+		font-size:5vw;
+	}
+	.sec-seb-txt{
+		font-size:3.2vw;
+	}
+
+}
+
+/* ------------------------------------------------
+                    テキストコンテント
+--------------------------------------------------- */
+.article-contents{
+	font-size:1.5rem
+}
+
+.article-text{
+	margin-top: 0.5em;
+	margin-bottom: 2em
+}
+.article-text  p{
+	margin-left: 1em;	
+}
+.article-text p.indent{
+	 text-indent: -1em;
+	padding-left: 1em;
+}
+
+.article-ttl{
+	font-size:1.8rem;
+	font-weight: 700;
+	color:var(--col_blue);
+}
+.article-contents a{
+	color:var(--col_blue);
+}
+@media (max-width: 768px) {
+	.article-contents{
+		font-size:3.2vw
+	}
+
+	.article-ttl{
+		font-size:3.8vw;
+	}
+}

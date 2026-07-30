@@ -124,7 +124,7 @@ Vue.createApp({
 		// ▼ fetchでcategories読み込み＋認証
 		Promise.all([
 			fetch('assets/json/categories.json').then(res => res.json()),
-			firebase.auth().signInAnonymously()
+			Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/
 		])
 		.then(([catRes]) => {
 

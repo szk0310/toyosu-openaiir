@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ja">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width,initial-scale=1.0, minimum-scale=1.0">
+	<meta name="format-detection" content="telephone=no">
+
+	<!-- favicon -->
+	<link rel="icon" type="image/x-icon" href="assets/images/common/favicon.ico">
+	<link rel="apple-touch-icon" href="assets/images/common/apple-touch-icon.png" sizes="152x152">
+	<link rel="icon" href="assets/images/common/android-chrome.png" sizes="192x192" type="image/png">
+
+
+	<!-- SEO -->
+	<title>TOYOSU OPEN AIR</title>
+	<meta name="description" content="">
+	<meta name="keywords" content="">
+	<link rel="canonical" href="">
+
+	<!-- font -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&display=swap" rel="stylesheet">
+
+
+	<!-- css -->
+	<link href="assets/css/common/base.css" rel="stylesheet" type="text/css">
+	<link href="assets/css/common/common.css" rel="stylesheet" type="text/css">
+	<link href="assets/css/top/top.css?v=260409-3" rel="stylesheet" type="text/css">
+	
+ <!-- firestore用 -->
+	<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+	<script src="assets/js/common/firestore_openAir.js"></script>
+   
+</head>
+    
+<body id="pagetop">
+    
+	<!-- header -->
+	<header>
+		<div class="header-inn">
+
+			<div class="header-logo"><a href="/">TOYOSU <span>OPEN AIR</span></a></div>
+
+			<button class="sp-menu-trigger sp">
+				<div class="sp-menu-btn">
+					<span></span>
+					<span></span>
+					<span></span>
+				</div>
+			</button>
+			<nav class="gnav-wrap">
+				<ul id="gnav">
+			 <!-- ▼ ドロップダウン対象 -->
+				<li class="has-dropdown">
+				  <a class="dropdown-toggle">
+					<span>スペースを</span><span>探す</span>
+				  </a>
+				  <ul class="dropdown">
+					<li><a href="map.html" class="btn_dropdown blue">マップから探す</a></li>
+					<li><a href="search.html" class="btn_dropdown green">目的から探す</a></li>
+				  </ul>
+				</li>
+					<li><a href="#event"><span>活用</span><span>事例</span></a></li>
+					<li><a href="#idea"><span>活用</span><span>アイデア</span></a></li>
+					<li><a href="contact" class="btn"><span>お問い合わせ</span></a></li>
+				</ul>
+			</nav>
+		</div>
+	</header>
+	<!-- header -->
+
+
+	<main class="main">
+		<section class="section mv">
+			<div class="cont-inn">
+				<p class="mv-copy">豊洲の青空の下で、<br>「やってみたい」<br class="sp">をカタチに。</p>
+				<h1 class="mv-ttl">キッチンカー、マルシェ、イベントに最適な<br>公開空地・公園スペースの<br class="sp">マッチングプラットフォーム</h1>
+				
+				<div class="btn-wrap">
+					<p><a href="map.html" class="btn blue min"><span>マップから</span><span>探す</span></a></p>
+					<p><a href="search.html" class="btn green min">目的から探す</a></p>
+				</div>
+			</div>
+		</section>
+
+		<section class="section step">
+			<div class="cont-inn">
+				<div class="ttl-wrap"> 
+					<h2 class="sec-ttl">簡単3ステップご利用までの流れ</h2>
+					<p class="sec-seb-txt">オープンスペースの可能性を広げるヒントが見つかる</p>
+				</div>
+				<div class="cont-wrap tac col3">
+					<div class="cont-item">
+						<p class="num">01</p>
+							<p class="item-icon">🔍</p>
+							<h3 class="item-ttl">スペースを探す</h3>
+							<p class="item-txt">マップやカレンダーで、利用したい日時・場所を検索。<br class="sp">設備やロケーションを比較検討します。</p>
+					</div>
+					<div class="cont-item">
+						<p class="num">02</p>
+							<p class="item-icon">✉️</p>
+							<h3 class="item-ttl">利用を申請する</h3>
+							<p class="item-txt">Webフォームから必要情報を入力し、利用を申請。<br class="sp">運営事務局が内容を確認します。</p>
+					</div>
+					<div class="cont-item">
+						<p class="num">03</p>
+							<p class="item-icon">🎉</p>
+							<h3 class="item-ttl">イベント当日！</h3>
+							<p class="item-txt">利用許諾が下りたら、<br class="sp">当日はルールを守ってスペースを利用。<br class="sp">新しい体験を始めましょう！</p>
+					</div>
+				
+				</div>
+				
+			</div>
+		</section>
+				
+
+		<div class="section pickup bg-blue">
+			<div class="cont-inn">
+				<div class="ttl-wrap"> 
+					<h2 class="sec-ttl">PICK UP SPACES in 豊洲</h2>
+					<p class="sec-seb-txt">今すぐ利用できる注目のオープンスペース</p>
+				</div>
+				<div class="cont-wrap shadow round col3" id="app_index_pickup">
+				</div>
+			</div>
+		</div>
+		
+		<div class="section map">
+			<div class="cont-inn">
+				<div class="cont-item">
+					<div class="ttl-wrap"> 
+						<h2 class="sec-ttl">豊洲エリアマップから<br>スペースを探す</h2>
+						<p class="sec-seb-txt">スペースの位置関係や周辺環境が<br class="sp">一目でわかるインタラクティブマップで、<br>直感的に最適な場所を見つけましょう。</p>
+						<div class="btn-wrap">
+							<p><a href="map.html" class="btn blue arrow"><span>インタラクティブマップを開く</span></a></p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<div class="section event bg-blue" id="event">
+			<div class="cont-inn">
+				<div class="ttl-wrap"> 
+					<h2 class="sec-ttl">豊洲でのイベント開催事例</h2>
+					<p class="sec-seb-txt">こんな使い方ができます</p>
+				</div>
+				<div class="cont-wrap round col2" id="app_index_case">
+				</div>
+				
+				<div class="btn-wrap">
+					<p><a href="case-list.html" class="btn green arrow"><span>全ての開催事例を見る</span></a></p>
+				</div>
+
+			</div>
+		</div>
+		
+	
+		<div class="section idea" id="idea">
+			<div class="cont-inn">
+				<div class="ttl-wrap"> 
+					<h2 class="sec-ttl">活用アイデアを探す</h2>
+					<p class="sec-seb-txt">オープンスペースの可能性を広げるヒントが見つかる</p>
+				</div>
+				
+				<div class="cont-wrap shadow round col3" id="app_index_idea">
+				</div>
+				
+				<div class="btn-wrap">
+					<p><a href="idea-list.html" class="btn green arrow"><span>全てのアイデアを見る</span></a></p>
+				</div>
+			</div>
+		</div>
+		
+
+		<section class="section value ">
+			<div class="cont-inn">
+				<div class="ttl-wrap"> 
+					<h2 class="sec-ttl">水と緑の街、豊洲で叶える<br>新しいビジネスと体験</h2>
+					<p class="sec-seb-txt">TOYOSU OPEN AIRが提供する3つの価値</p>
+				</div>
+				<div class="cont-wrap tac col3">
+					<div class="cont-item">
+							<p class="item-icon"><img src="assets/img/top/sec_value_img01.jpg" alt=""></p>
+							<h3 class="item-ttl">最高のロケーション</h3>
+							<p class="item-txt">海と公園に囲まれた抜群の開放感。<br>都心からのアクセスも良く、タワーマンションが立ち並ぶエリアのため集客力も期待できます。</p>
+					</div>
+					<div class="cont-item">
+							<p class="item-icon"><img src="assets/img/top/sec_value_img02.jpg" alt=""></p>
+							<h3 class="item-ttl">多様な屋外スペース</h3>
+							<p class="item-txt">広大な公園からビルの公開空地まで。<br>電源や水道の有無など、設備情報も詳細に掲載。<br class="sp">あなたのイベントにぴったりの場所が見つかります。</p>
+					</div>
+					<div class="cont-item">
+							<p class="item-icon"><img src="assets/img/top/sec_value_img03.jpg" alt=""></p>
+							<h3 class="item-ttl">簡単な利用申請プロセス</h3>
+							<p class="item-txt">面倒な手続きをオンラインでサポート。<br>空き状況の確認から利用申請までスムーズに行え、<br class="sp">初めての方でも安心です。</p>
+					</div>
+				
+				</div>
+				
+			</div>
+		</section>
+		
+
+		
+		
+	</main>
+
+
+	<footer>
+		<!--<p class="pagetop"><a href="#pagetop" class="is-imghover">pagetop</a></p>-->
+		<div class="cont-inn">
+			<div class="link-wrap">
+				<a href="https://toyosu-smartcity.com" target="_blank">運営会社</a>
+				<a href="terms.html">利用規約</a>
+				<a href="privacy.html">プライバシーポリシー</a>
+				<a href="contact/">お問い合わせ</a>
+			</div>
+			<p class="copyright">© 2026 （一社）豊洲スマートシティ推進協議会. All Rights Reserved.</p>
+		</div>
+	</footer>
+
+
+	<!-- js -->
+	<script src="assets/js/common/jquery-3.6.0.min.js"></script>
+	<script src="assets/js/common/common.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+	<script type="text/javascript" src="assets/js/common/vue.js"></script>
+	<script type="text/javascript" src="assets/js/app_index_case.js"></script>	
+	<script type="text/javascript" src="assets/js/app_index_idea.js"></script>	
+	<script type="text/javascript" src="assets/js/app_index_pickup.js"></script>	
+</body>
+</html>

@@ -41,7 +41,7 @@ Vue.createApp({
 
 	mounted(){	
 			console.log("mounted start!!");
-			firebase.auth().signInAnonymously()
+			Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/
 			  .then(() => {
 				  console.log("Auth OK!!");
 				  const db = firebase.firestore();
