@@ -476,6 +476,51 @@ IDトークンが自動で付与されます。
 
 ---
 
+### 5-12. 【重要】テスト環境 `testtoyosuopenair` に本番のルールを適用しないこと
+
+2026-07-30、本番ルールの検証のためテスト環境へ同じルールを適用し、戻し忘れた結果
+**テスト環境の全データが読めなくなりました**（スタッフから「テスト系が表示されない」と報告）。
+同日中に元のルールへ復旧済みです。
+
+**なぜ壊れたか**
+
+| | 本番 `toyosuopenair` | テスト `testtoyosuopenair` |
+| --- | --- | --- |
+| ルール | 所有者(uid)限定 | `if request.auth != null`（匿名でも可） |
+| データの `uid` | 全件あり（移行済み） | **全39件とも無し** |
+| `admins` | 2件 | **0件** |
+| アプリのコード | uidベースの新コード | **旧コード**（匿名ログイン＋login_id検索） |
+| 匿名認証 | 無効 | 有効 |
+
+テスト環境は**データもコードも本番とは別物**です。本番ルールを持ち込むと、
+uid が無いため全ドキュメントが所有者判定に失敗し、`admins` も空なので
+管理者としても読めず、結果として全滅します。
+
+**⚠️ ルールを検証したい場合の正しい手順**
+
+1. まず `firebase deploy --only firestore:rules --project testtoyosuopenair --dry-run` で
+   構文だけ確認する（適用されません）
+2. 挙動の検証は **Rules テスト API**（`projects:test`）を使う。データにもデプロイ済み
+   ルールにも影響しません
+3. どうしてもテスト環境で実挙動を見たい場合は、**事前に uid のバックフィルと
+   テストアプリのコード更新をセットで行う**こと。終わったら元のルールに戻す
+
+**復旧方法**（同じことが起きた場合）
+
+```
+curl -X PATCH -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+  -H "x-goog-user-project: testtoyosuopenair" -H 'Content-Type: application/json' \
+  -d '{"release":{"name":"projects/testtoyosuopenair/releases/cloud.firestore",
+       "rulesetName":"projects/testtoyosuopenair/rulesets/0963b2e5-0d39-4ab4-a9b9-fa2fc8f6f0eb"},
+       "updateMask":"rulesetName"}' \
+  "https://firebaserules.googleapis.com/v1/projects/testtoyosuopenair/releases/cloud.firestore"
+```
+
+なお検証の都合で、テスト環境では**メール/パスワード認証を有効化**しました（追加のみで
+既存の匿名認証はそのまま）。実害はないため戻していません。
+
+---
+
 ## 6. トラブルシュート早見表
 
 | 症状                                               | 原因                                                                     | 対処                                                                                  |

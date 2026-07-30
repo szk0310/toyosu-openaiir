@@ -863,6 +863,119 @@ Authアカウントとアップロード画像はクライアントから削除�
 
 ---
 
+# 第8部 2回目レビューへの対応（2026-07-30）
+
+第7部の改修を外部レビューにかけ、指摘された重大4件に対応した。
+
+## 8-1. ルールの正規表現迂回 —「直したつもりで残っていた」
+
+第7部で `calendarData` の枠の先取りを塞いだつもりだったが、**実質そのまま残っていた。**
+
+```js
+// 【修正前】s_id をそのまま正規表現に連結していた
+allow create: if ... && doc.matches(request.resource.data.s_id + '_.*');
+```
+
+`spaceData` の create は docID と `s_id` の一致も文字種も検証していなかったため、
+**`s_id` に `.*` を入れたスペースを正規の手順で作成できた**。それを親として
+`calendarData` を作ると `doc.matches('.*_.*')` が任意のIDに一致し、他施設の
+未保存カレンダー月を奪える。検証が検証になっていなかった。
+
+```js
+// 【修正後】IDを数字のみに限定し、docID との一致を要求する
+function numericId(v) { return v is string && v.matches('^[0-9]+$'); }
+
+// spaceData
+allow create: if isAdmin()
+              || (ownsIncoming() && ownsParentFacility()
+                  && doc == request.resource.data.s_id
+                  && numericId(doc)
+                  && numericId(request.resource.data.f_id));
+
+// calendarData
+allow create: if isAdmin()
+              || (ownsIncoming() && ownsParentSpace()
+                  && numericId(request.resource.data.s_id)
+                  && doc.matches('^' + request.resource.data.s_id + '_[0-9]{4}_[0-9]{1,2}$'));
+
+// facilityData
+allow create: if isAdmin() && fid == request.resource.data.f_id && numericId(fid);
+```
+
+`f_id` は `new Date().getTime()`、`s_id` は `Date.now()` 由来でいずれも数字列。
+既存データも全件が数字IDであることを確認済みなので、この制限で既存機能は壊れない。
+
+**教訓**: ユーザーが値を決められるフィールドを正規表現に連結してはいけない。
+文字種を先に固定すること。
+
+## 8-2. 新規スペース登録でカテゴリが読み込まれない（第7部で作り込んだ退行）
+
+第7部でカテゴリの競合を直した際、`loadCategories()` を `ensureAuth()` チェーンへ
+移した。しかしその手前に `if (!sid) return;` があり、**新規登録では必ずここで抜ける**ため
+一度も呼ばれなくなっていた。
+
+```js
+// 【修正後】読み込みは early return より前に開始し、完了はチェーン内で待つ
+const catsReady = this.loadCategories();
+
+const sid = sessionStorage.getItem("toyosu_manage_space_id");
+if (!sid) return;              // 新規登録
+
+ensureAuth()
+  .then(() => catsReady)       // 競合対策は維持
+  .then(() => db.collection("spaceData").doc(sid).get())
+```
+
+`categories.json` が未設置のため顕在化していなかったが、設置すると
+「新規登録だけカテゴリが付かない」という別の不整合になるところだった。
+
+## 8-3. `upload_auth.js` が認証状態の復元を待っていなかった
+
+`firebase.auth().currentUser` を同期で読んでいたため、ページを開いた直後に
+送信すると `null` になり、誤って「セッションが切れました」と表示されていた。
+`onAuthStateChanged` で復元を待つよう変更。あわせて以下も対応。
+
+- 二重送信の防止（送信中はボタンを無効化）
+- トークンの使い回しを廃止（戻る操作で期限切れトークンが再送されるのを防ぐ）
+
+## 8-4. `_auth.php` の公開鍵キャッシュ
+
+`/tmp/openair_fb_certs.json` を無検証で読み、署名検証鍵として使っていた。
+共有ホスティングで `/tmp` が他テナントから書き込める構成なら、**偽の公開鍵を
+置かれるだけで任意のIDトークンを偽造でき、認証全体が突破される。**
+
+- キャッシュ先を `__DIR__/.cache` に移動（`.htaccess` と `.gitignore` で遮断）
+- `fileowner() === getmyuid()` を確認してから信用する
+- 作成時に `0700` / `0600` を設定
+
+あわせて、`curl` が無い環境で権限判定が常に失敗し全員403になる問題も修正
+（`file_get_contents` のフォールバックを追加、判定不能時は 503 で区別）。
+
+## 8-5. レビューで「問題なし」と確認された設計判断
+
+- **CSRF**: Cookie ではなくPOSTボディでIDトークンを明示的に送る方式は、それ自体が
+  標準的なCSRF対策。攻撃者は被害者のトークンを読めない
+- **JWT検証ロジック**: alg固定・kid必須・署名対象・`$ok !== 1` での 0/-1 両方の拒否・
+  各クレーム検証・匿名拒否、いずれも正しい
+- **`require_can_access()` の 200 判定**: 文書が無ければ404が返るため、
+  `missingDoc()` の抜け穴にはならない。curl不在時のフェイルクローズも正しい
+
+## 8-6. 検証方法
+
+ルールの修正は **Rules テスト API で8ケース**確認した（テスト環境を壊さないため）。
+`--dry-run` で構文だけ確認し、実挙動はテストAPIで検証、本番へは直接適用という流れ。
+
+| 検証 | 結果 |
+|---|---|
+| `s_id` に `.*` を仕込んだスペース作成 | DENY |
+| docID と `s_id` の不一致 | DENY |
+| 他施設の `s_id` で枠を先取り | DENY |
+| `s_id=.*` による docID 詐称 | DENY |
+| 親施設が他人 | DENY |
+| 正常な作成（spaceData / calendarData） | ALLOW |
+
+---
+
 # 参照
 
 - [HANDOFF_スタッフ向け.md](HANDOFF_スタッフ向け.md) — 概要・運用手順・未解決課題
