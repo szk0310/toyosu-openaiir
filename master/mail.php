@@ -50,8 +50,46 @@ $auto_reply_text .= "ログインページ：http://toyosu-smartcity.com/open_ai
 	$auto_reply_text .= "********************************************************\n\n";
 
 
+// ============================================================
+//  【一時停止中】2026-07-30 〜
+//
+//  このスクリプトは認証が無く、宛先($_POST['email'])も無検証のまま
+//  mb_send_mail() に渡していたため、第三者が当社名義で任意の宛先へ
+//  メールを送信できる状態（オープンリレー相当）でした。
+//  実際に外部から curl で送信できることを確認済みです。
+//
+//  Firebase ID トークンによる認証（_auth.php）の実装が完了するまで、
+//  送信を停止します。代わりに発行された ID / PASS を画面に表示するので、
+//  管理者が施設へ手動で連絡してください。
+//
+//  ※ 復旧時はこのブロックを削除し、下部のコメントアウトを解除したうえで
+//    必ず認証と宛先検証を入れてから有効化すること。
+// ============================================================
+$SEND_DISABLED = true;
+
+if ($SEND_DISABLED) {
+	header('Content-Type: text/html; charset=UTF-8');
+	$e = function ($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); };
+	echo '<!doctype html><html lang="ja"><head><meta charset="utf-8">';
+	echo '<title>ID/PASS発行完了（メール送信は停止中）</title>';
+	echo '<style>body{font-family:sans-serif;max-width:640px;margin:40px auto;padding:0 16px;line-height:1.8}';
+	echo '.box{border:2px solid #c00;background:#fff5f5;padding:16px;border-radius:8px}';
+	echo '.cred{background:#f4f4f4;padding:12px;border-radius:6px;font-family:monospace;font-size:16px}';
+	echo 'a{display:inline-block;margin-top:24px}</style></head><body>';
+	echo '<h1>施設の登録は完了しました</h1>';
+	echo '<div class="box"><strong>⚠️ 自動メール送信は現在停止しています。</strong><br>';
+	echo 'セキュリティ対応のため一時的に停止中です。';
+	echo '下記の ID と PASS を、施設のご担当者へ<strong>手動でご連絡ください。</strong></div>';
+	echo '<p>送信予定だった宛先: <code>' . $e($_POST['email'] ?? '') . '</code></p>';
+	echo '<div class="cred">ID：' . $e($_POST['lid'] ?? '') . '<br>Pass：' . $e($_POST['pass'] ?? '') . '</div>';
+	echo '<p>ログインページ：<br>https://toyosu-smartcity.com/open_air/manage/facility/login.html</p>';
+	echo '<a href="index.html">← 施設一覧へ戻る</a>';
+	echo '</body></html>';
+	exit;
+}
+
 // 自動返信メール送信
-	mb_send_mail( $_POST['email'], $auto_reply_subject, $auto_reply_text, $header,$additional_params,);
+//	mb_send_mail( $_POST['email'], $auto_reply_subject, $auto_reply_text, $header,$additional_params,);
 
 header('Location: index.html');
 exit;
