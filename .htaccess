@@ -1,0 +1,40 @@
+# ============================================================
+#  豊洲OpenAir 管理画面  セキュリティ設定
+#  配置先: <ROOT>/manage/.htaccess
+#
+#  ※ mod_headers が無い環境でも 500 にならないよう IfModule で囲っている。
+# ============================================================
+
+<IfModule mod_headers.c>
+    # 管理画面を他サイトの iframe に埋め込ませない（クリックジャッキング対策）
+    Header always set X-Frame-Options "DENY"
+
+    # Content-Type の推測を禁止（誤ったMIME解釈による実行を防ぐ）
+    Header always set X-Content-Type-Options "nosniff"
+
+    # 外部サイトへ遷移する際に URL のパス以降を渡さない
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # 使用しないブラウザ機能を明示的に無効化
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+    # HTTPS でのみアクセスさせる（サーバーは HTTP を 301 でリダイレクトしている）
+    Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+# ------------------------------------------------------------
+#  内部用ファイルへの直接アクセスを禁止
+#  _auth.php はスクリプト自身も直接アクセスを弾くが、多層防御として。
+# ------------------------------------------------------------
+<FilesMatch "^(_auth\.php|firebase\.json|firestore\.rules|.*\.md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# ディレクトリ一覧の表示を禁止
+Options -Indexes
