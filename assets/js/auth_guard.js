@@ -116,6 +116,9 @@
   // ログアウト共通処理
   global.logoutManage = function (loginUrl) {
     return firebase.auth().signOut().finally(function () {
+      // 共有PCでの利用を想定し、施設名などの残留情報も必ず消す。
+      // これを消さないと、ログアウト後も前の利用者の施設名が画面に残る。
+      try { sessionStorage.clear(); } catch (e) { /* 参照できない環境は無視 */ }
       location.href = loginUrl || "login.html";
     });
   };

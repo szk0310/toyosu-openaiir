@@ -1,3 +1,14 @@
+<?php
+// ============================================================
+//  サーバーサイド認証（2026-07-30 追加）
+//  このファイルは URL を知っていれば curl で直接実行できてしまうため、
+//  出力HTML内の auth_guard.js だけでは保護にならない。ここで必ず検証する。
+//  権限: 施設の所有者(または管理者)のみ
+// ============================================================
+require_once __DIR__ . '/../_auth.php';
+$id = openair_safe_id($_REQUEST['id'] ?? '');   // パストラバーサル対策
+require_can_access('facilityData', $id);
+?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -19,7 +30,7 @@
 
 
 function uploadImage($tmpName, $dir, $maxWidth, $maxHeight){
-$id = trim($_REQUEST['id']);
+$id = openair_safe_id($_REQUEST['id'] ?? '');
 
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file($tmpName);
@@ -97,9 +108,10 @@ imagecopyresampled($image2, $image1, $startPointX , $startPointY, 0, 0,  $width2
 	$imgid = $id.'-' .time();
 	$filename = $imgid . $ext;
 	
-	$js_filename = '"'.$filename.'"';
-	$js_imgid = '"'.$imgid.'"';
-	$js_id = '"'.$id.'"';
+	// json_encode でエスケープする。文字列連結だと <script> 内にコードを注入できる
+	$js_filename = json_encode($filename, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+	$js_imgid    = json_encode($imgid,    JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+	$js_id       = json_encode($id,       JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
 	echo <<<EOM
 			<script type="text/javascript">
