@@ -155,9 +155,13 @@ for (var i = 0; i < idLength; i++) {
 				})
 				.then(function () {
 					console.log("Document successfully written!");
-					// ID/PASS をメール通知（従来どおり）
-					post("mail.php", { email: contactMail, lid: l_id, pass: pass });
-					//location.href = "index.html";
+					// ID/PASS をメール通知。
+					// mail.php はサーバー側(_auth.php)で管理者かどうかを検証するため、
+					// Firebase の IDトークンを一緒に送る必要がある。
+					return firebase.auth().currentUser.getIdToken(true)
+						.then(function (idToken) {
+							post("mail.php", { email: contactMail, lid: l_id, pass: pass, idToken: idToken });
+						});
 				})
 				.catch(function (error) {
 					console.error("登録エラー: ", error);
