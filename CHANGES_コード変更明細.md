@@ -1,6 +1,6 @@
 # コード変更明細書 — Firebase Auth 移行
 
-最終更新: 2026-07-26
+最終更新: 2026-07-30
 
 [HANDOFF_スタッフ向け.md](HANDOFF_スタッフ向け.md) が「何が起きたか」の概要資料であるのに対し、
 この資料は **どのファイルをどう書き換えたか** を1件ずつ具体的に示すものです。
@@ -207,7 +207,7 @@ var email = id_txt + window.AUTH_EMAIL_DOMAIN;      // 10桁ID → 内部メー�
 firebase.auth().signInWithEmailAndPassword(email, pass_txt)
   .then(function (cred) {
      return db.collection("facilityData")
-       .where("login_id", "==", id_txt)             // ← パスワード条件は消えた
+       .where("uid", "==", cred.user.uid)           // ← ※2026-07-30に login_id から変更（第6部）
        .limit(1)
        .get()
        .then(function (querySnapshot) {
@@ -228,7 +228,8 @@ firebase.auth().signInWithEmailAndPassword(email, pass_txt)
 **押さえるべき点**
 
 - 改修前は「パスワードを含むクエリを投げる」＝**パスワードが通信内容とDBの両方に平文で存在**していました。
-- 改修後は認証を Firebase Auth が担い、Firestore へは `login_id` だけで問い合わせます。
+- 改修後は認証を Firebase Auth が担います。Firestore への問い合わせは当初 `login_id` でしたが、
+  所有者限定ルールの導入に伴い **`uid` での検索に変更**しました（第6部）。
 - **エラーメッセージが2種類に分かれました。** これが障害切り分けの手がかりになります。
   - 「IDまたはパスワードが違います」→ **認証で失敗**（Auth アカウントが無い or パスワード誤り）
   - 「この施設のデータが見つかりません」→ **認証は成功**したが Firestore にデータが無い
@@ -381,41 +382,74 @@ user.reauthenticateWithCredential(cred)      // ① 現パスワードで再認�
 `ensureAuth` / `ensureAdmin` は**未認証時に Promise を解決しません**（画面遷移するため）。
 `.then()` の中身が実行されないのは仕様です。バグではありません。
 
-## 2-7. `firestore.rules` — セキュリティルール（**新規** 89行）
+## 2-7. `firestore.rules` — セキュリティルール（**新規**）
 
 改修前は**ルールファイルがリポジトリに存在しませんでした。**
-新規作成し、**2026-07-24 に本番 `toyosuopenair` へ適用済み**です（適用確認済み）。
+新規作成して 2026-07-24 に適用し、その後 **2026-07-30 に2度改訂**しています（経緯は第6部）。
+以下は**現行版**です。
 
 ```js
-// 非匿名でログインしているか
-function signedIn() {
+function signedIn() {                     // 非匿名でログインしているか
   return request.auth != null
     && request.auth.token.firebase.sign_in_provider != 'anonymous';
 }
-
-// 管理者か（admins/{uid} が存在するか）
-function isAdmin() {
+function isAdmin() {                      // 管理者か（admins/{uid} が存在するか）
   return signedIn()
     && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+}
+function ownsExisting() {                 // 既存ドキュメントの所有者か
+  return signedIn() && resource.data.uid == request.auth.uid;
+}
+function ownsIncoming() {                 // 書き込む内容の所有者が自分か（uidの付け替え防止）
+  return signedIn() && request.resource.data.uid == request.auth.uid;
+}
+function missingDoc() {                   // 存在しないドキュメントの取得
+  return signedIn() && resource == null;
 }
 ```
 
 | コレクション | read | write |
 |---|---|---|
-| `facilityData` | 公開 | create/delete = 管理者のみ<br>update = 本人（`resource.data.uid == request.auth.uid`）または管理者 |
-| `spaceData` | 公開 | ログイン済み（匿名を除く） |
-| `calendarData` | 公開 | ログイン済み（匿名を除く） |
-| `ideaData` | 公開 | 管理者のみ |
-| `caseData` | 公開 | 管理者のみ |
+| `facilityData` | 所有者(uid一致)と管理者のみ | create/delete = 管理者のみ<br>update = 所有者または管理者 |
+| `spaceData` | 所有者と管理者のみ | 所有者または管理者 |
+| `calendarData` | 所有者と管理者のみ | 所有者または管理者 |
+| `ideaData` | **管理者のみ** | 管理者のみ |
+| `caseData` | **管理者のみ** | 管理者のみ |
 | `admins` | 本人のみ | **常に禁止**（コンソールから手動作成） |
 | その他すべて | 禁止 | 禁止 |
 
-- **read を公開のままにしている理由**: 公開サイト側が同じ Firestore を参照して表示しているためです。
-  パスワードは保存されなくなったので、読み取り公開でも認証情報は漏れません。
+### ★ 改修する人が必ず理解すべき3点
+
+**① `list`（クエリ）はルールがフィルタしてくれない**
+
+`resource.data.uid` を参照するルールの下では、**クエリ側も `.where("uid","==",自分のuid)` で
+絞らないと Firestore がクエリごと拒否します**（一部だけ返す、という挙動にはなりません）。
+施設側の全クエリは uid で絞るよう実装済みです。実測で確認しています。
+
+| クエリ | 結果 |
+|---|---|
+| `where("uid","==",自分)` | ✅ 200 |
+| `where("s_id","==",X).where("uid","==",自分)` | ✅ 200（複合インデックス不要） |
+| `where("f_id","==",X)` のみ | ❌ 403 |
+| `where("login_id","==",X)` のみ | ❌ 403 |
+| 絞り込み無しの一覧（施設ユーザー） | ❌ 403 |
+| 絞り込み無しの一覧（管理者） | ✅ 200 |
+
+**② `spaceData` / `calendarData` の新規作成時は `uid` の書き込みが必須**
+
+`uid` を入れずに作成するとルールに拒否されて保存できません。既存の13件には補完済みです。
+
+**③ 存在しないドキュメントの取得は明示的に許可している**
+
+`resource == null` のとき `resource.data.uid` を評価するとエラーになり拒否されてしまいます。
+カレンダー画面は「まだ保存していない月」を必ず読みに行くため、これが無いと画面が壊れます。
+実測では**存在しない文書は 404（403 ではない）**を返すことを確認済みです。
+
 - `admins` は**ルール上コードから書き込めません**。管理者の追加は必ず Firebase コンソールで行ってください。
 
-⚠️ **ルールはリポジトリに置くだけでは効きません。** 変更したら Firebase コンソールか
-`firebase deploy --only firestore:rules` で**明示的に適用**してください。
+⚠️ **ルールはリポジトリに置くだけでは効きません。**
+`firebase deploy --only firestore:rules --project toyosuopenair` で明示的に適用してください
+（`firebase.json` を用意済み）。
 
 ## 2-8. `master/mail.php` — ログインURL（+1 / −1）
 
@@ -529,7 +563,8 @@ Firebase Auth のアカウントは残ります。完全に消すには
 |---|---|
 | Firestore に `login_pass` を追加/変更 | **何も起きない。** 認証は Auth が行うため完全に無視される。⚠️ しかも `facilityData` は **read が公開**なので、平文パスワードを置くと誰でも読める状態になる。**絶対にやらないこと** |
 | Firestore の `login_id` を変更 | ⚠️ **ログイン不能になる**（5-3 参照） |
-| Firestore の `uid` を変更 | 施設本人が自分のデータを更新できなくなる。ルールが `resource.data.uid == request.auth.uid` で所有者を判定しているため（[firestore.rules](firestore.rules) の `facilityData` の `allow update`）。管理者は引き続き更新可 |
+| Firestore の `uid` を変更 | ⚠️ **その施設は自分のデータを一切参照・更新できなくなる。** ルールが `resource.data.uid == request.auth.uid` で所有者を判定しているため（管理者は引き続き可）。`spaceData` / `calendarData` の `uid` も同様 |
+| `spaceData` / `calendarData` を `uid` 無しで手動作成 | ルールに拒否され、施設からは読めない。**必ず `uid` を入れること**（→ 第6部） |
 | Firestore の `f_id` を変更 | スペース・カレンダー・画像との紐付けが切れる。`f_id` は各画面の `where("f_id", "==", ...)` の検索キー |
 | **Auth** のパスワードを変更 | ✅ **正しく反映される。これが正規の変更方法** |
 | **Auth** のメールアドレス（＝ID）を変更 | ⚠️ Firestore の `login_id` と食い違い、ログイン不能になる |
@@ -582,6 +617,108 @@ Firestore の `login_id` だけを新しい値に書き換えると、こうな�
 Firebase コンソールは管理者権限で動作するため、[firestore.rules](firestore.rules) の制約を受けません。
 アプリ経由なら弾かれる不整合な変更も、コンソールからは通ってしまいます。
 **ルールが守ってくれない前提で、5-2 の依存関係を意識して作業してください。**
+
+---
+
+# 第6部 セキュリティ修正（2026-07-30）— 施設データの外部公開と施設間の分離
+
+Firebase Auth 移行とは別に、**データが外部から閲覧できる状態**が見つかり修正しました。
+
+## 6-1. 何が起きていたか
+
+スタッフから「他の施設の情報がコンソールで見えてしまう」と報告があり調査したところ、
+**認証トークンを一切付けずに、インターネット上の誰でも全件取得できる状態**でした。
+
+| コレクション | 公開されていた件数 | 含まれていた機微情報 |
+|---|---|---|
+| `facilityData` | 6件（全24項目） | **`login_id`（認証情報の半分）・担当者メールアドレス** |
+| `spaceData` | 13件 | — |
+| `ideaData` / `caseData` | 3件 / 2件 | — |
+
+パスワードは Firebase Auth 管理のため流出していません。
+
+**原因**は `allow read: if true`。「公開サイトの表示を壊さないため」としていましたが、
+サーバー全体を調べた結果**このデータを参照する公開サイトは存在しませんでした**
+（`/thub/` は別プロジェクト `toyosuevent` を使用）。守るべき互換性が無いまま公開されていました。
+
+## 6-2. 第1段階 — read を認証必須に（即時遮断）
+
+全コレクションの `allow read: if true` を `if signedIn()` に変更。外部からの閲覧を止めました。
+
+## 6-3. 第2段階 — 所有者(uid)による分離
+
+ログイン済みの施設同士はまだ相互に見えていたため、所有者と管理者のみに限定しました。
+**ルール変更だけでは実現できず、データ・コード・ルールの3つを揃える必要があります。**
+
+### ① データ: `spaceData` に `uid` を補完
+
+既存13件に `uid` がありませんでした。`f_id` から `facilityData.uid` を引いて補完しています
+（`updateMask` で `uid` のみ追加、他フィールドは未変更）。
+
+### ② コード: クエリを `uid` ベースへ
+
+**`list`（クエリ）はルールがフィルタしてくれません。** 所有者限定ルールの下では、
+クエリ側も `uid` で絞らないと Firestore がクエリごと拒否します。
+
+| ファイル | 変更前 | 変更後 |
+|---|---|---|
+| `facility/assets/js/manage_login.js` | `where("login_id","==",id)` | `where("uid","==",cred.user.uid)` |
+| `facility/assets/js/app_manage_idpass_post.js` | `where("f_id","==",fid)` | `where("uid","==",user.uid)` |
+| `facility/assets/js/app_manage_detail_post.js` | `where("f_id","==",fid)`（2箇所） | `where("uid","==",...)` |
+| `facility/assets/js/app_manage_space.js` | `where("f_id","==",fid)` | `where("uid","==",user.uid)` |
+| `app_manage_space_image.js` / `_image_order.js` / `_calender.js` | `where("s_id","==",sid)` | `.where("s_id",...).where("uid",...)` |
+| `app_manage_space_post{,_000,_100,_err}.js` | — | 新規作成時に `uid` を保存 |
+| `app_manage_space_calender.js` | — | `calendarData` 作成時に `uid` / `s_id` を保存 |
+
+`ensureAuth()` は認証済みユーザーを解決するため、`.then((user) => ...)` で `user.uid` を受け取っています。
+
+### ③ ルール: 所有者限定へ
+
+現行のルールは 2-7 を参照してください。
+
+## 6-4. 適用順序（重要）
+
+**データ → コード → ルール** の順で適用しました。逆順にするとアプリが停止します。
+
+| 順 | 内容 | 理由 |
+|---|---|---|
+| 1 | `spaceData` に `uid` を補完 | ルール適用時に既存データが弾かれないようにするため |
+| 2 | コードを本番へデプロイ | 新しい `uid` クエリは**旧ルールでも動く**ので先に出せる |
+| 3 | ルールを本番へ適用 | 最後。この時点で新コードが揃っている |
+
+## 6-5. 検証方法
+
+ルールのテスト API には**再現できない挙動が2つ**あることが分かりました。
+
+- `list`（クエリ）を正しく評価できない
+- `resource == null`（存在しないドキュメント）を再現できない
+
+いずれも「`if true` のルールでも DENY になる」対照実験で確認しました。そこで
+**テスト環境 `testtoyosuopenair` に検証用ユーザーを作成し、実際の Firestore に対して
+end-to-end で検証**しています。
+
+| 検証項目 | 結果 |
+|---|---|
+| 自分の `facilityData` を取得 | ✅ 200 |
+| 他施設の `facilityData` を取得 | ✅ 403 |
+| 絞り込み無しで一覧（施設ユーザー） | ✅ 403 |
+| `where("uid","==",自分)` で一覧 | ✅ 200 |
+| `where("s_id",X).where("uid",自分)` | ✅ 200（複合インデックス不要） |
+| `where("f_id",X)` のみ（旧クエリ） | ✅ 403 ＝ コード変更が必須だった裏付け |
+| 存在しない文書を取得 | ✅ **404**（403 ではない） |
+| 管理者が全件一覧 | ✅ 200 |
+| 管理者が `ideaData` を取得 | ✅ 許可（404＝存在しないだけ） |
+
+検証用のユーザーとデータは削除済みです。なお検証のため、テスト環境で
+**①メール/パスワード認証を有効化、②本番と同じルールを適用**しました。本番と条件を揃える
+意味があるため、そのままにしてあります。
+
+## 6-6. 今後の教訓
+
+「読み取りは公開でよい」という判断は、**そのデータに認証情報や個人情報が混ざっていないか**を
+確認してから行ってください。今回は `facilityData` に `login_id` と担当者メールアドレスが
+同居していたことが問題を大きくしました。表示用データと認証・連絡先データは、本来
+別コレクションに分けるべきです。
 
 ---
 
