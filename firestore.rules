@@ -96,8 +96,24 @@ service cloud.firestore {
       // これらが変わると spaceData との紐付けや管理者画面の表示が壊れる。
       // （f_release は施設が自分で公開/非公開を切り替える仕様なので制限しない）
       allow update: if isAdmin()
+                    || (ownsExisting() && ownsIncoming() && unchanged('f_id'));
+    }
+
+    // 施設の秘匿情報（ログインIDと担当者メール）。
+    // ★ facilityData から分離したもの。公開サイトの施設詳細ページは
+    //   facilityData を doc(f_id).get() で読むため、同じ文書に秘匿情報を
+    //   置いておくと doc.data() 経由でブラウザに渡ってしまう。
+    //   ここに隔離し、所有者と管理者だけが読めるようにする。
+    match /facilityPrivate/{fid} {
+      allow get:    if isAdmin() || missingDoc() || ownsExisting();
+      allow list:   if isAdmin();
+      allow create: if isAdmin()
+                    && fid == request.resource.data.f_id && numericId(fid);
+      // 施設本人は連絡先メールのみ変更できる。login_id と uid は固定。
+      allow update: if isAdmin()
                     || (ownsExisting() && ownsIncoming()
                         && unchanged('f_id') && unchanged('login_id'));
+      allow delete: if isAdmin();
     }
 
     // スペース（施設が編集）
