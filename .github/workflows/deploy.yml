@@ -79,6 +79,7 @@ jobs:
               --exclude '(^|/)\.gitignore$' \
               --exclude '\.md$' \
               --exclude '(^|/)firestore\.rules$' \
+              --exclude '(^|/)firebase\.json$' \
               ./ '${FTP_REMOTE_ROOT}/manage/';
 
             # (2) 親階層の共有アセット一式 → <ROOT>/assets/
