@@ -190,8 +190,11 @@ data() {
     // ==========================
     // JSON読み込み
     // ==========================
+    // ★ 呼び出し側が完了を待てるよう Promise を返す。
+    //   待たずに Firestore を読むと、後から走るこの処理が
+    //   selectedCategories を空配列で初期化し、読み込んだ選択値を消してしまう。
     loadCategories() {
-      axios.get('../../assets/json/categories.json')
+      return axios.get('../../assets/json/categories.json')
         .then(res => {
 
           // spaceのみ使用
@@ -339,10 +342,7 @@ data() {
 
   mounted() {
 
-    // ① カテゴリ読込
-    this.loadCategories();
-
-    // ② 施設情報
+    // ① 施設情報（カテゴリJSONは下の ensureAuth チェーン内で読み込む）
     this.facilityId = sessionStorage.getItem("toyosu_manage_facility_id");
     this.facilityName = sessionStorage.getItem("toyosu_manage_facility_name");
     this.facilityAdd = sessionStorage.getItem("toyosu_manage_facility_address");
@@ -353,6 +353,10 @@ data() {
     this.spaceId = sid;
 
     ensureAuth()
+      // ★ カテゴリJSONの読み込み完了を待ってから Firestore を読む。
+      //   逆順だと、後から走る loadCategories が選択値を空配列で上書きし、
+      //   そのまま保存すると既存カテゴリが消える。
+      .then(() => this.loadCategories())
       .then(() => {
         const db = firebase.firestore();
         return db.collection("spaceData").doc(sid).get();

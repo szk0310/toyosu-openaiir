@@ -46,16 +46,57 @@ Vue.createApp({
 			location.href = "post.html";
 		},
 		 removeData(id,name) {
-			var result = window.confirm('『' + name + '』を削除します。');
-			if( result ) {
-			   const db = firebase.firestore();
-				db.collection("facilityData").doc(id).delete()
-				   .then(()=> {
-						 location.href = "index.html";
-				   });
-			}else {
-				console.log('キャンセルがクリックされました');
-			}
+			// 施設を削除すると、その施設が登録したスペースとカレンダーも
+			// 一緒に消す。以前は facilityData の1件だけを消していたため、
+			// spaceData / calendarData が孤児として残り続けていた。
+			var result = window.confirm(
+				'『' + name + '』を削除します。\n\n' +
+				'この施設のスペース・カレンダーもまとめて削除されます。\n' +
+				'※ログインアカウント（Firebase Authentication）と\n' +
+				'　アップロード済み画像は自動では消えません。'
+			);
+			if( !result ) { console.log('キャンセルがクリックされました'); return; }
+
+			const db = firebase.firestore();
+
+			// ① この施設のスペースを取得（管理者なので f_id で絞れる）
+			db.collection("spaceData").where("f_id", "==", id).get()
+			  .then(function (spaceSnap) {
+				  const spaceIds = spaceSnap.docs.map(function (d) { return d.data().s_id; })
+				                                 .filter(Boolean);
+				  // ② それらのスペースに紐づくカレンダーを取得
+				  //    s_id は最大10件までしか in 検索できないため分割する
+				  const chunks = [];
+				  for (let i = 0; i < spaceIds.length; i += 10) { chunks.push(spaceIds.slice(i, i + 10)); }
+				  const calQueries = chunks.map(function (c) {
+					  return db.collection("calendarData").where("s_id", "in", c).get();
+				  });
+				  return Promise.all(calQueries).then(function (calSnaps) {
+					  return { spaceSnap: spaceSnap, calSnaps: calSnaps };
+				  });
+			  })
+			  .then(function (r) {
+				  // ③ まとめて削除（スペース → カレンダー → 施設本体）
+				  const batch = db.batch();
+				  r.spaceSnap.forEach(function (d) { batch.delete(d.ref); });
+				  r.calSnaps.forEach(function (snap) {
+					  snap.forEach(function (d) { batch.delete(d.ref); });
+				  });
+				  batch.delete(db.collection("facilityData").doc(id));
+				  return batch.commit();
+			  })
+			  .then(function () {
+				  alert(
+					  '施設とその配下データを削除しました。\n\n' +
+					  'ログインアカウントは残っています。完全に削除する場合は\n' +
+					  'Firebase コンソールの Authentication → Users から削除してください。'
+				  );
+				  location.href = "index.html";
+			  })
+			  .catch(function (error) {
+				  console.error("削除エラー:", error);
+				  alert("削除に失敗しました: " + (error && error.message ? error.message : error));
+			  });
 		 },
 		releaseCNG__only_f(state, fid) {
 			  const db = firebase.firestore();

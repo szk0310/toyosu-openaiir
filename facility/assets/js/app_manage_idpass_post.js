@@ -1,7 +1,7 @@
 Vue.createApp({
   template: `
 <div class="h-bg">
-	<h3 class="h-ttl">メール(ID)・パスワード　変更</h3>
+	<h3 class="h-ttl">連絡先メールアドレス・パスワード　変更</h3>
 </div>
 
 <div class="manage-bg">
@@ -21,19 +21,19 @@ Vue.createApp({
 					<th>現パスワード<span class="post-req">*</span></th>
 					<td>
 						<!--<input type="text" id="pass" name="pass" class="manage-input" v-model="appFacilityData.login_pass">-->
-						<input type="text" id="pass" name="pass" class="manage-input">
+						<input type="password" id="pass" name="pass" class="manage-input" autocomplete="current-password">
 					</td>
 				</tr>
 				<tr>
 					<th>新パスワード<span class="post-req">*</span></th>
 					<td>
-						<input type="text" id="pass_new" name="pass_new" class="manage-input">
+						<input type="password" id="pass_new" name="pass_new" class="manage-input" autocomplete="new-password">
 					</td>
 				</tr>
 				<tr>
 					<th>新パスワード確認<span class="post-req">*</span></th>
 					<td>
-						<input type="text" id="pass_new_conf" name="pass_new_conf" class="manage-input">
+						<input type="password" id="pass_new_conf" name="pass_new_conf" class="manage-input" autocomplete="new-password">
 					</td>
 				</tr>
 
@@ -93,12 +93,14 @@ Vue.createApp({
         return false;
       }
 
-      // 現パスワードで再認証 → Firebase Auth のパスワード更新 → 連絡用メール(mail)を更新
+      // 実行順序: 再認証 → 連絡先メールを更新 → 最後にパスワードを更新
+      //
+      // ★ パスワード更新を先に行うと、その後の Firestore 更新が失敗したときに
+      //   「変更に失敗しました」と表示されるのに実際のパスワードは変わっている、
+      //   という食い違いが起きる。利用者は旧パスワードで試し続けてロックアウトされる。
+      //   取り消せない操作（パスワード変更）を最後に置くことでこれを防ぐ。
       var cred = firebase.auth.EmailAuthProvider.credential(user.email, cur_pass);
       user.reauthenticateWithCredential(cred)
-        .then(function () {
-          return user.updatePassword(pass_n);
-        })
         .then(function () {
           var db = firebase.firestore();
           var ts = firebase.firestore.FieldValue.serverTimestamp();
@@ -108,7 +110,10 @@ Vue.createApp({
           }, { merge: true });
         })
         .then(function () {
-          alert("パスワードを変更しました");
+          return user.updatePassword(pass_n);
+        })
+        .then(function () {
+          alert("パスワードを変更しました。次回のログインから新しいパスワードをお使いください。");
           location.href = "index.html";
         })
         .catch(function (error) {
@@ -116,7 +121,8 @@ Vue.createApp({
           if (error && (error.code === "auth/wrong-password" || error.code === "auth/invalid-credential")) {
             alert("現パスワードが違います");
           } else {
-            alert("変更に失敗しました: " + (error && error.message ? error.message : error));
+            // ここに来た場合、パスワードは変更されていない（最後に実行しているため）
+            alert("変更に失敗しました。パスワードは変更されていません。\n" + (error && error.message ? error.message : error));
           }
         });
     }
