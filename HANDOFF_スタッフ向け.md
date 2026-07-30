@@ -521,6 +521,49 @@ curl -X PATCH -H "Authorization: Bearer $(gcloud auth application-default print-
 
 ---
 
+### 5-13. 【最重要】`/open_air/` には公開サイトが同居している
+
+2026-07-30、読み取りを認証必須にした結果**公開サイトの表示が壊れました**
+（スタッフから「表の表示ができなくなっている」と報告）。同日中に復旧済みです。
+
+**なぜ見落としたか**: `/open_air/` は管理画面用に新設したフォルダのつもりでしたが、
+**同じフォルダに他社さんが公開サイトを配置していました**。調査時に `manage/` と
+`assets/js/common/` しか見ておらず、`/open_air/index.html` の存在に気づきませんでした。
+
+```
+/open_air/
+├─ index.html          ← ★公開サイト（トップ）
+├─ search.html / map.html / terms.html / privacy.html   ← ★公開サイト
+├─ assets/
+│   ├─ js/common/firestore_openAir.js   ← 管理画面と共用
+│   ├─ js/app_index_case.js / app_index_idea.js / app_index_pickup.js / app_search.js
+│   └─ images/ ...                       ← 公開サイトの素材
+└─ manage/             ← 管理画面（このリポジトリ）
+```
+
+**⚠️ 公開サイトが Firestore を直接読んでいます。** ルールを変更するときは必ず影響を確認してください。
+
+| コレクション | 公開サイトでの読み方 | 現在のルール |
+| --- | --- | --- |
+| `caseData` | 全件取得（トップの事例） | 公開read |
+| `ideaData` | 全件取得（トップのアイデア） | 公開read |
+| `spaceData` | `where("s_release","==","on")` | **公開中のみ**公開read |
+| `calendarData` | 全件取得（検索画面） | 公開read |
+| `facilityData` | **読んでいない** | **非公開**（`login_id`・担当者メールがあるため） |
+
+公開サイトが `facilityData` を読んでいないことは、4つのスクリプトすべてを実機で
+確認済みです。そのため**認証情報は非公開のまま、公開サイトだけを復旧できました。**
+
+**ルールを変更する前に必ず実施すること**
+
+1. `/open_air/` 配下の公開サイト側スクリプトが読むコレクションを確認する
+2. 変更後、未認証で以下が取得できることを確認する
+   - `caseData` / `ideaData` / `calendarData` の全件
+   - `spaceData` を `s_release == "on"` で絞った取得
+3. あわせて `facilityData` が `PERMISSION_DENIED` のままであることを確認する
+
+---
+
 ## 6. トラブルシュート早見表
 
 | 症状                                               | 原因                                                                     | 対処                                                                                  |

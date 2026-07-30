@@ -5,6 +5,8 @@ rules_version = '2';
 //
 //  方針:
 //   - パスワードは Firestore に保存しない（Firebase Auth 管理）。
+//   - 公開サイト（/open_air/）が表示に使うデータは未認証でも read できる。
+//     ただし facilityData だけは login_id・担当者メールを含むため非公開。
 //   - 施設は「自分のデータだけ」read / write できる（所有者は uid で判定）。
 //   - 管理者(admins/{uid} を持つユーザー)は全データを read / write できる。
 //   - 匿名ユーザーは一切アクセスできない。
@@ -15,6 +17,11 @@ rules_version = '2';
 //     アドレスが外部から取得できたため、全コレクションで認証必須に変更。
 //   - 2026-07-30 第2段階: ログイン済みの施設同士が相互に閲覧できる状態だった
 //     ため、所有者(uid一致)と管理者のみに限定。
+//   - 2026-07-30 第3段階: 上記で公開サイト(/open_air/)の表示が壊れたため、
+//     公開サイトが実際に読む4コレクションのみ未認証 read を戻した。
+//     facilityData は引き続き非公開（ここに login_id と担当者メールがある）。
+//     公開サイトが読むもの: caseData / ideaData / spaceData(s_release=='on') /
+//     calendarData。facilityData は読んでいないことを実機で確認済み。
 //
 //  ★重要（改修する人へ）:
 //   list（クエリ）は「ルールがフィルタしてくれる」わけではありません。
@@ -95,8 +102,12 @@ service cloud.firestore {
 
     // スペース（施設が編集）
     match /spaceData/{doc} {
-      allow get:    if isAdmin() || missingDoc() || ownsExisting();
-      allow list:   if isAdmin() || ownsExisting();
+      // 公開サイトは .where("s_release","==","on") で絞って取得するため、
+      // 公開中のスペースに限り未認証でも読める。非公開のものは漏れない。
+      allow get:    if isAdmin() || missingDoc() || ownsExisting()
+                    || resource.data.s_release == 'on';
+      allow list:   if isAdmin() || ownsExisting()
+                    || resource.data.s_release == 'on';
       // 自分の uid を書くだけでなく、親施設も自分のものであることを要求する。
       // ★ ドキュメントIDと s_id を一致させ、さらに数字のみに限定する。
       //   これを怠ると s_id に正規表現のメタ文字（例: ".*"）を仕込んだ
@@ -118,8 +129,9 @@ service cloud.firestore {
     //  その施設が当該月を読むことも保存することもできなくなるため、
     //  親スペースの所有とドキュメントIDの整合を両方要求する。
     match /calendarData/{doc} {
-      allow get:    if isAdmin() || missingDoc() || ownsExisting();
-      allow list:   if isAdmin() || ownsExisting();
+      // 公開サイトの検索画面が全件取得する。空き状況は公開情報であり
+      // 認証情報を含まないため read は公開でよい。書き込みは所有者のみ。
+      allow read:   if true;
       // s_id を数字のみに限定したうえで {s_id}_{年}_{月} の形を厳密に要求する
       allow create: if isAdmin()
                     || (ownsIncoming() && ownsParentSpace()
@@ -130,15 +142,15 @@ service cloud.firestore {
       allow delete: if isAdmin() || ownsExisting();
     }
 
-    // アイデア（管理者専用コンテンツ。施設側の画面からは参照しない）
+    // アイデア（公開サイトのトップに掲載される。編集は管理者のみ）
     match /ideaData/{doc} {
-      allow read:  if isAdmin();
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
-    // 事例（管理者専用コンテンツ。施設側の画面からは参照しない）
+    // 事例（公開サイトのトップに掲載される。編集は管理者のみ）
     match /caseData/{doc} {
-      allow read:  if isAdmin();
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
