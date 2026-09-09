@@ -1,5 +1,9 @@
 # 公開サイト（/open_air/）
 
+> **このディレクトリは本番の写しです（2026-09-09 同期）。**
+> 反映はスタッフの手動FTPで行われ、**ここから本番へ配信されることはありません。**
+> 本番を直接編集した場合は、このディレクトリにも取り込んで差分ゼロを保ってください。
+
 デプロイ先: `<FTP_REMOTE_ROOT>/`（= `/open_air/`）
 公開URL: https://toyosu-smartcity.com/open_air/
 
@@ -11,7 +15,7 @@
 
 | 対象 | 理由 |
 |---|---|
-| `assets/upload_img/` | **実行時に管理画面からアップロードされる画像。**同期するとリポジトリ側の古い状態で本番の投稿画像を上書きしてしまう。workflow でも除外している |
+| `assets/upload_img/` | **実行時に管理画面からアップロードされる画像。**同期するとリポジトリ側の古い状態で本番の投稿画像を上書きしてしまう |
 | `assets/js/common/firestore_openAir.js` | 管理画面と共用。`_shared-config/` を正本とする |
 | `assets/js/common/vue.js` | 同上 |
 
@@ -41,17 +45,22 @@
 プロジェクト側で無効化しており、呼び出すと `ADMIN_ONLY_OPERATION` で
 Promise が reject し、以降の処理が全て止まります。
 
-## Mapbox のアクセストークン
+## Google Maps の API キー
 
-`map.html` のトークンは**リポジトリに置いていません**。GitHub Secret `MAPBOX_TOKEN`
-から、デプロイ時に `assets/js/common/mapbox_config.js` が自動生成されます。
+`map.html` のキーは**リポジトリに置いていません**。本番サーバー上の
+`assets/js/common/google_maps_config.js` が唯一の正本です。
 
-- トークンを変更するとき: GitHub の Secret `MAPBOX_TOKEN` を更新して再デプロイ
+> **2026-09-09 変更**: 自動デプロイを無効化したため、このファイルは
+> GitHub Secret からは生成されなくなりました。**サーバー上のファイルを直接編集**してください。
+
+- キーを変更するとき: 本番の `assets/js/common/google_maps_config.js` を FTP で差し替える
 - ローカルで地図を確認したいとき: 手元に同名ファイルを作る（`.gitignore` 済み）
   ```js
-  window.MAPBOX_TOKEN = "pk.〜";
+  window.GOOGLE_MAPS_API_KEY = "AIza〜";
+  window.GOOGLE_MAPS_MAP_ID = ""; // 任意。角丸アイコンマーカーにクラウドスタイルを使う場合のみ設定
   ```
 
-`pk.` で始まる公開用トークンなので、配信されるJSに含まれること自体は正しい使い方です。
-リポジトリに入れないのは、GitHub のシークレット検出に引っかかるためと、
-ローテーションをコミットなしで行えるようにするためです。
+ブラウザから直接呼び出すクライアントサイド用の公開キーなので、配信されるJSに含まれること
+自体は正しい使い方です。リポジトリに入れないのは、GitHub のシークレット検出に引っかかるためと、
+ローテーションをコミットなしで行えるようにするためです。Google Cloud Console 側で
+「HTTP リファラー」制限を必ずかけてください。
