@@ -4,5 +4,7 @@
 # Firebase 公開鍵のローカルキャッシュ（サーバー上で自動生成）
 .cache/
 
-# デプロイ時に GitHub Secret から生成する（リポジトリには置かない）
+# 地図の APIキー／トークン。リポジトリには置かない。
+# 本番サーバー上のファイルが正本（2026-09-09 現在は Google Maps を使用）。
+_public/assets/js/common/google_maps_config.js
 _public/assets/js/common/mapbox_config.js

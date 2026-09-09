@@ -210,6 +210,19 @@ HTTP でアクセスすると HTTPS へ 301 リダイレクトされます。
 
 ### 3-4. GitHub と自動デプロイ
 
+> ## ⛔ 2026-09-09 追記：自動デプロイは無効化しました
+>
+> 本番への反映は**スタッフによる手動FTP**に一本化しました。
+> ワークフローは `.github/workflows/` の外へ退避してあり
+> （[_disabled-workflows/deploy.yml.disabled](_disabled-workflows/deploy.yml.disabled)）、
+> **push でも手動でも実行されません。**
+>
+> このリポジトリは「本番に何が入っているか」を記録する側です。
+> **ここから本番へ書き込むことはありません。**
+>
+> 以下の記述は無効化前のものです。再開する場合の前提条件は
+> 退避先ファイルの冒頭コメントに記載しています。
+
 - リポジトリ: https://github.com/szk0310/toyosu-openaiir
 - ブランチ `firebase-auth-migration` → **PR #1 は 2026-07-26 にマージ済み**。今回の変更はすべて `main` に入っています
 - workflow: [.github/workflows/deploy.yml](.github/workflows/deploy.yml)（`lftp` による FTPS 同期）
@@ -222,7 +235,7 @@ HTTP でアクセスすると HTTPS へ 301 リダイレクトされます。
 | `FTP_PASS`        | FTPパスワード  |
 | `FTP_REMOTE_ROOT` | `open_air`   |
 
-⚠️ **`main` に push すると自動デプロイが走ります。** 以降、`main` を更新する＝本番へ即反映されると考えてください。
+~~⚠️ **`main` に push すると自動デプロイが走ります。**~~ → **無効化済み（2026-09-09）。`main` を更新しても本番には反映されません。**
 
 **動作実績**: 2026-07-26 の PR #1 マージで初回実行、**1分1秒で成功**（run ID `30164894746`）。
 手動実行したい場合は `Actions` タブ →「Deploy to CPI (FTPS)」→ `Run workflow` から可能です。
@@ -367,7 +380,7 @@ PR #1（9コミット）をマージ済み。これにより初回の自動デ�
 > Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4
 
 **現時点では自動的に Node 24 で実行されるため実害はありません。** 将来 GitHub が Node 20 の
-サポートを完全に打ち切った際に備えるなら、[.github/workflows/deploy.yml](.github/workflows/deploy.yml) の
+サポートを完全に打ち切った際に備えるなら、[_disabled-workflows/deploy.yml.disabled](_disabled-workflows/deploy.yml.disabled) の
 `uses: actions/checkout@v4` を `@v5` に上げてください（1行の変更です）。
 
 ---
@@ -628,5 +641,5 @@ Firestore は**文書全体をブラウザに返す**ため、同じ文書に `l
 - [CHANGES_コード変更明細.md](CHANGES_コード変更明細.md) — **どのコードをどう変更したかの1件ごとの明細**
 - [DEPLOY_本番反映手順.md](DEPLOY_本番反映手順.md) — デプロイ手順の詳細
 - [firestore.rules](firestore.rules) — セキュリティルール本体
-- [.github/workflows/deploy.yml](.github/workflows/deploy.yml) — 自動デプロイ定義
+- [_disabled-workflows/deploy.yml.disabled](_disabled-workflows/deploy.yml.disabled) — 自動デプロイ定義（**2026-09-09 無効化**）
 - GitHub PR #1: https://github.com/szk0310/toyosu-openaiir/pull/1

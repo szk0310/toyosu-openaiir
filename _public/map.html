@@ -10,10 +10,9 @@
 	<link rel="icon" href="assets/images/common/android-chrome.png" sizes="192x192" type="image/png">
 
 	<!-- SEO -->
-	<title>Mapから探す ｜TOYOSU OPEN AIR</title>
+	<title>Mapから探す ｜</title>
 	<meta name="description" content="">
 	<meta name="keywords" content="">
-	<link rel="canonical" href="">
 
 	<!-- font -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,11 +22,9 @@
 	<!-- css -->
 	<link href="assets/css/common/base.css" rel="stylesheet" type="text/css">
 	<link href="assets/css/common/common.css" rel="stylesheet" type="text/css">
-	<link href="assets/css/map/map.css?v=260409" rel="stylesheet" type="text/css">
+	<link href="assets/css/map/map.css?v=260827" rel="stylesheet" type="text/css">
 
-	<link href="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css" rel="stylesheet">
-	<script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
-	<script src="assets/js/common/mapbox_config.js"></script>
+	<script src="assets/js/common/google_maps_config.js"></script>
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
 </head>
@@ -36,7 +33,7 @@
 	<header>
 		<div class="header-inn">
 
-			<div class="header-logo"><a href="index.html">TOYOSU <span>OPEN AIR</span></a></div>
+			<div class="header-logo"><a href="index.html"><span>OPEN AIR</span></a></div>
 
 			<button class="sp-menu-trigger sp">
 				<div class="sp-menu-btn">
@@ -108,7 +105,7 @@
 				<a href="privacy.html">プライバシーポリシー</a>
 				<a href="contact/">お問い合わせ</a>
 		</div>
-		<p class="copyright">© 2026 （一社）豊洲スマートシティ推進協議会. All Rights Reserved.</p>
+		<p class="copyright"></p>
 	</div>
 </footer>
 
@@ -123,28 +120,59 @@
 <script src="assets/js/common/firestore_openAir.js"></script>
 
 <script>
-// アクセストークンはリポジトリに置かない。デプロイ時に GitHub Secret
-// (MAPBOX_TOKEN) から assets/js/common/mapbox_config.js が生成される。
-mapboxgl.accessToken = window.MAPBOX_TOKEN;
-if (!mapboxgl.accessToken) { console.error("Mapbox のアクセストークンが読み込まれていません"); }
-const initialCenter = [139.791221, 35.650561];
+// APIキーはリポジトリに置かない。デプロイ時に GitHub Secret
+// (GOOGLE_MAPS_API_KEY) から assets/js/common/google_maps_config.js が生成される。
+if (!window.GOOGLE_MAPS_API_KEY) { console.error("Google Maps の API キーが読み込まれていません"); }
+
+// Google Maps JS API を非同期ロードし、読み込み完了後に initMap を呼び出す
+(function () {
+  const s = document.createElement('script');
+  s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(window.GOOGLE_MAPS_API_KEY || '')
+    + '&libraries=marker&callback=initMap&v=weekly';
+  s.async = true;
+  document.head.appendChild(s);
+})();
+
+const initialCenter = { lat: 35.650561, lng: 139.791221 };
 //const initialZoom = 14;
 const mediaQuery = window.matchMedia('(max-width: 768px)');
 const initialZoom = mediaQuery.matches ? 13 : 13;
 
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/standard',
-  center: initialCenter,
-  zoom: initialZoom,
-  minZoom: 12,
-  maxZoom: 17
-});
-
+let map;
 let markers = [];
 let facilityData = [];
 let categoryConfig = [];
-let selectedCategories = {}; 
+let selectedCategories = {};
+
+// --- 地図初期化（Google Maps JS API のコールバックから呼ばれる） ---
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: initialCenter,
+    zoom: initialZoom,
+    minZoom: 12,
+    maxZoom: 17,
+    mapId: window.GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID',
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    zoomControl: false
+  });
+
+  // ▼Reset
+  addResetViewControl();
+
+  // ▼＋−
+  addZoomControl();
+
+  map.addListener('idle', () => { updateMarkers(); updateSidebar(); });
+
+  document.getElementById('info').addEventListener('click', () => { document.getElementById('info').style.display = 'none'; });
+
+  // --- 初期ロード ---
+  Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/.then(() => {
+    loadCategories().then(() => loadFacilityData());
+  });
+}
 
 // --- カテゴリJSONロード ---
 async function loadCategories() {
@@ -252,9 +280,10 @@ async function loadFacilityData() {
 
 // --- マーカー更新 ---
 function updateMarkers() {
-  markers.forEach(m=>m.remove());
+  markers.forEach(m=>m.map=null);
   markers=[];
   const bounds = map.getBounds();
+  if(!bounds) return;
 
   facilityData.forEach(f=>{
     let show=true;
@@ -267,7 +296,8 @@ function updateMarkers() {
         break;
       }
     }
-    if(!bounds.contains(f.geometry.coordinates)) show=false;
+    const position = { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+    if(!bounds.contains(position)) show=false;
 
     if(show){
       const el=document.createElement('div');
@@ -278,7 +308,12 @@ function updateMarkers() {
       el.style.backgroundImage=`url(assets/upload_img/facility/icon/${f.properties.imageId})`;
       el.style.backgroundSize='100%';
       el.addEventListener('click',()=>showInfo(f));
-      markers.push(new mapboxgl.Marker(el).setLngLat(f.geometry.coordinates).addTo(map));
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position,
+        map,
+        content: el
+      });
+      markers.push(marker);
     }
   });
 }
@@ -290,6 +325,7 @@ function updateSidebar() {
   list.innerHTML='';
 
   const bounds = map.getBounds();
+  if(!bounds) return;
 
   const visible = facilityData.filter(f=>{
     for(const field in selectedCategories){
@@ -300,7 +336,8 @@ function updateSidebar() {
       if(!selected.every(v => vals.includes(v))) return false;
     }
 
-    return bounds.contains(f.geometry.coordinates);
+    const position = { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] };
+    return bounds.contains(position);
   });
 
 
@@ -371,10 +408,8 @@ function updateSidebar() {
     // 施設クリックでマップ移動
     item.addEventListener('click', () => {
 
-      map.flyTo({
-        center: f.geometry.coordinates,
-        zoom: 17
-      });
+      map.panTo({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] });
+      map.setZoom(17);
 
       showInfo(f); // infoパネルも表示
     });
@@ -410,48 +445,46 @@ function showInfo(f){
   document.getElementById('view-facility-link').addEventListener('click',()=>{sessionStorage.toyosu_manage_facility_id=f.properties.f_id});
 }
 
-// --- 初期ロード ---
-Promise.resolve()/*匿名ログイン廃止(2026-07-30)*/.then(()=>{
-  loadCategories().then(()=>loadFacilityData());
-});
+// --- 豊洲全体を表示するボタン（独自コントロール） ---
+function addResetViewControl(){
+  const container = document.createElement('div');
+  container.className = 'gmap-ctrl-group';
 
-map.on('moveend',()=>{updateMarkers(); updateSidebar();});
-document.getElementById('info').addEventListener('click',()=>{document.getElementById('info').style.display='none';});
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '豊洲全体を表示する';
+  btn.title = '初期表示位置に戻る';
 
-class ResetViewControl{
-  onAdd(map){
-    this.map = map;
+  btn.addEventListener('click', () => {
+    map.panTo(initialCenter);
+    map.setZoom(initialZoom);
+  });
 
-    this.container = document.createElement('div');
-    this.container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
-
-    const btn = document.createElement('button');
-    btn.textContent = '豊洲全体を表示する';
-    btn.title = '初期表示位置に戻る';
-
-    btn.addEventListener('click', () => {
-      map.flyTo({
-        center: initialCenter,
-        zoom: initialZoom,
-        essential: true
-      });
-    });
-
-    this.container.appendChild(btn);
-    return this.container;
-  }
-
-  onRemove(){
-    this.container.parentNode.removeChild(this.container);
-    this.map = undefined;
-  }
+  container.appendChild(btn);
+  map.controls[google.maps.ControlPosition.RIGHT_TOP].push(container);
 }
 
-// ▼Reset
-map.addControl(new ResetViewControl(),'top-right');
+// --- ＋−ズームボタン（独自コントロール） ---
+function addZoomControl(){
+  const container = document.createElement('div');
+  container.className = 'gmap-ctrl-group gmap-ctrl-zoom';
 
-// ▼＋−
-map.addControl(new mapboxgl.NavigationControl({showCompass:false}),'top-right');
+  const zoomInBtn = document.createElement('button');
+  zoomInBtn.type = 'button';
+  zoomInBtn.textContent = '＋';
+  zoomInBtn.title = '拡大';
+  zoomInBtn.addEventListener('click', () => map.setZoom(map.getZoom() + 1));
+
+  const zoomOutBtn = document.createElement('button');
+  zoomOutBtn.type = 'button';
+  zoomOutBtn.textContent = '－';
+  zoomOutBtn.title = '縮小';
+  zoomOutBtn.addEventListener('click', () => map.setZoom(map.getZoom() - 1));
+
+  container.appendChild(zoomInBtn);
+  container.appendChild(zoomOutBtn);
+  map.controls[google.maps.ControlPosition.RIGHT_TOP].push(container);
+}
 </script>
 </body>
 </html>

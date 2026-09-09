@@ -250,6 +250,34 @@
 }
 
 
-.mapboxgl-ctrl.mapboxgl-ctrl-group:first-child button{
+.gmap-ctrl-group{
+	background:#fff;
+	border-radius:4px;
+	box-shadow:0 0 0 2px rgba(0,0,0,.1);
+	margin:10px;
+	overflow:hidden;
+}
+.gmap-ctrl-group button{
+	display:block;
 	width:10em;
+	border:none;
+	background:none;
+	padding:6px 4px;
+	font-size:12px;
+	white-space:nowrap;
+	cursor:pointer;
+}
+.gmap-ctrl-zoom{
+	margin-top:0;
+}
+.gmap-ctrl-zoom button{
+	width:32px;
+	height:32px;
+	padding:0;
+	font-size:16px;
+	line-height:32px;
+	box-sizing:border-box;
+}
+.gmap-ctrl-zoom button:first-child{
+	border-bottom:1px solid rgba(0,0,0,.1);
 }

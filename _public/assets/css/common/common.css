@@ -287,6 +287,17 @@ header .gnav-wrap #gnav li a.btn_dropdown.green{
 	border:3px solid var(--col_green);
 }
 
+/*----map一時無効----*/
+		.dropdown li:nth-child(1) a{
+			pointer-events: none;
+		}
+		header .gnav-wrap #gnav li a.btn_dropdown.blue{
+		background:var(--col_gray);
+		border:3px solid var(--col_gray);
+			opacity: 0.3
+	}
+
+
 @media (hover: hover) and (pointer: fine) {
     header .gnav-wrap ul#gnav li a.btn_dropdown.blue:hover{
 		color:var(--col_blue);
